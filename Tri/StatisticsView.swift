@@ -20,71 +20,110 @@ struct StatisticsView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
 
-            Picker("Period", selection: $period) {
-                ForEach(StatsPeriod.allCases, id: \.self) { period in
-                    Text(period.label).tag(period)
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 20)
-
             let points = dataPoints
-            Chart(points) { point in
-                LineMark(
-                    x: .value("Date", point.date),
-                    y: .value("Distance", point.value)
-                )
-                .foregroundStyle(Color.black)
-                .interpolationMethod(.catmullRom)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Track Progress")
+                    .font(.system(size: 18, weight: .bold, design: .serif))
 
-                PointMark(
-                    x: .value("Date", point.date),
-                    y: .value("Distance", point.value)
-                )
-                .foregroundStyle(Color.black)
-            }
-            .chartXAxis {
-                AxisMarks(position: .bottom) { value in
-                    AxisGridLine()
-                    AxisValueLabel {
-                        Text(axisLabel(for: value.as(Date.self)))
+                Chart(points) { point in
+                    LineMark(
+                        x: .value("Date", point.date),
+                        y: .value("Distance", point.value)
+                    )
+                    .foregroundStyle(Color.black)
+                    .interpolationMethod(.catmullRom)
+                }
+                .chartXAxis {
+                    AxisMarks(position: .bottom) { value in
+                        AxisGridLine()
+                        AxisValueLabel {
+                            Text(axisLabel(for: value.as(Date.self)))
+                        }
                     }
                 }
-            }
-            .chartYScale(domain: 0...(points.map { $0.value }.max() ?? 1) * 1.2)
-            .chartOverlay { proxy in
-                GeometryReader { geometry in
-                    Rectangle().fill(Color.clear).contentShape(Rectangle())
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { value in
-                                    let x = value.location.x - geometry[proxy.plotAreaFrame].origin.x
-                                    if let date: Date = proxy.value(atX: x) {
-                                        selectedPoint = closestPoint(to: date, in: points)
-                                    }
+                .chartYScale(domain: 0...(points.map { $0.value }.max() ?? 1) * 1.2)
+                .chartOverlay { proxy in
+                    GeometryReader { geometry in
+                        ZStack {
+                            Rectangle().fill(Color.clear).contentShape(Rectangle())
+                                .gesture(
+                                    DragGesture(minimumDistance: 0)
+                                        .onChanged { value in
+                                            let plotFrame = geometry[proxy.plotAreaFrame]
+                                            let x = value.location.x - plotFrame.origin.x
+                                            if let date: Date = proxy.value(atX: x) {
+                                                selectedPoint = closestPoint(to: date, in: points)
+                                            }
+                                        }
+                                )
+
+                            if let selectedPoint,
+                               let xPosition = proxy.position(forX: selectedPoint.date),
+                               let yPosition = proxy.position(forY: selectedPoint.value) {
+                                let plotFrame = geometry[proxy.plotAreaFrame]
+                                VStack(spacing: 4) {
+                                    Text(selectedPoint.displayLabel)
+                                        .font(.system(size: 12, weight: .semibold))
+                                    Text("\(String(format: "%.1f", selectedPoint.value)) mi")
+                                        .font(.system(size: 12, weight: .bold))
                                 }
-                        )
+                                .padding(8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(Color.white)
+                                        .shadow(color: Color.black.opacity(0.12), radius: 8, x: 0, y: 4)
+                                )
+                                .position(
+                                    x: plotFrame.origin.x + xPosition,
+                                    y: plotFrame.origin.y + max(12, yPosition - 28)
+                                )
+                            }
+                        }
+                    }
                 }
+                .frame(height: 240)
+
+                Picker("Period", selection: $period) {
+                    ForEach(StatsPeriod.allCases, id: \.self) { period in
+                        Text(period.label).tag(period)
+                    }
+                }
+                .pickerStyle(.segmented)
             }
-            .frame(height: 260)
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(.white)
+                    .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 4)
+            )
             .padding(.horizontal, 20)
 
-            if let selectedPoint {
-                HStack {
-                    Text("\(selectedPoint.displayLabel)")
-                        .font(.system(size: 16, weight: .semibold))
-                    Spacer()
-                    Text("\(String(format: "%.1f", selectedPoint.value)) mi")
-                        .font(.system(size: 16, weight: .bold))
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Daily Average Calories")
+                    .font(.system(size: 18, weight: .bold, design: .serif))
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("1000")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                    Text("cal")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.black.opacity(0.5))
                 }
-                .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.white)
-                        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
-                )
-                .padding(.horizontal, 20)
             }
+            .padding(.horizontal, 20)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Weekly Workout Average")
+                    .font(.system(size: 18, weight: .bold, design: .serif))
+                Text("8")
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+
+                HStack(spacing: 16) {
+                    statIconCount(type: .swim, count: 2)
+                    statIconCount(type: .bike, count: 3)
+                    statIconCount(type: .run, count: 3)
+                }
+            }
+            .padding(.horizontal, 20)
 
             Spacer()
         }
@@ -153,6 +192,16 @@ struct StatisticsView: View {
 
     private func closestPoint(to date: Date, in points: [StatPoint]) -> StatPoint? {
         points.min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) })
+    }
+
+    private func statIconCount(type: WorkoutType, count: Int) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: type.systemImage)
+                .font(.system(size: 14, weight: .semibold))
+            Text("\(count)")
+                .font(.system(size: 12, weight: .semibold))
+        }
+        .foregroundStyle(Color.black.opacity(0.6))
     }
 }
 
