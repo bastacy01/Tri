@@ -95,7 +95,7 @@ struct WorkoutCardView: View {
 
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(card.distance)
                     .font(.system(size: 20, weight: .bold, design: .serif))
                 Text(card.type.rawValue)
@@ -104,11 +104,15 @@ struct WorkoutCardView: View {
 
                 Spacer()
 
-                ZStack {
-                    RingView(progress: card.progress, lineWidth: 5.5, size: 58, tint: .black, background: Color.black.opacity(0.12))
-                    Image(systemName: card.type.systemImage)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(Color.black)
+                HStack {
+                    Spacer()
+                    ZStack {
+                        RingView(progress: card.progress, lineWidth: 6, size: 64, tint: .black, background: Color.black.opacity(0.12))
+                        Image(systemName: card.type.systemImage)
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(Color.black)
+                    }
+                    Spacer()
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 124, alignment: .leading)
@@ -128,9 +132,12 @@ struct RecentWorkoutRow: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Image(systemName: workout.type.systemImage)
-                .font(.system(size: 26, weight: .semibold))
-                .foregroundStyle(Color.black)
+            ZStack {
+                Image(systemName: workout.type.systemImage)
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(Color.black)
+            }
+            .frame(width: 36, height: 36)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(workout.type.rawValue)
@@ -300,7 +307,7 @@ struct WorkoutGoalSheet: View {
     let weekTotal: Double
 
     var body: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 38) {
             Capsule()
                 .fill(Color.black.opacity(0.2))
                 .frame(width: 50, height: 6)
@@ -310,22 +317,22 @@ struct WorkoutGoalSheet: View {
                 .font(.system(size: 20, weight: .bold, design: .serif))
 
             ZStack {
-                RingView(progress: progress, lineWidth: 9, size: 90, tint: .black, background: Color.black.opacity(0.12))
+                RingView(progress: progress, lineWidth: 9, size: 100, tint: .black, background: Color.black.opacity(0.12))
                 Image(systemName: type.systemImage)
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(.system(size: 32, weight: .semibold))
                     .foregroundStyle(Color.black)
             }
 
-            VStack(spacing: 6) {
+            VStack(spacing: 10) {
                 Text("\(Int(weekTotal)) \(type.unitLabel) this week")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 18, weight: .semibold))
                 Text("Goal: \(Int(weeklyGoal)) \(type.unitLabel)")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Color.black.opacity(0.5))
             }
 
             Spacer()
         }
-        .padding(.bottom, 16)
+        .padding(.top, 22)
     }
 }
