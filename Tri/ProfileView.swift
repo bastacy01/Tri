@@ -15,13 +15,28 @@ struct ProfileView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 20) {
-                Text("Profile")
-                    .font(.system(size: 26, weight: .bold, design: .serif))
-                    .padding(.top, 12)
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                            )
+                            .frame(width: 54, height: 54)
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(Color.black)
+                    }
+                    Text("Profile")
+                        .font(.system(size: 26, weight: .bold, design: .serif))
+                }
+                .padding(.top, 12)
 
                 goalsSection
                 streakSection
                 healthKitSection
+                logoutSection
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 120)
@@ -35,7 +50,7 @@ struct ProfileView: View {
 
             VStack(spacing: 12) {
                 goalRow(title: "Daily Calories", value: $settings.dailyCaloriesGoal, range: 200...2500, step: 50, suffix: "cal")
-                goalRow(title: "Weekly Swim", value: $settings.weeklySwimGoal, range: 500...20000, step: 250, suffix: "yd")
+                goalRow(title: "Weekly Swim", value: $settings.weeklySwimGoal, range: 500...20000, step: 25, suffix: "yd")
                 goalRow(title: "Weekly Bike", value: $settings.weeklyBikeGoal, range: 5...300, step: 5, suffix: "mi")
                 goalRow(title: "Weekly Run", value: $settings.weeklyRunGoal, range: 2...100, step: 1, suffix: "mi")
             }
@@ -101,6 +116,26 @@ struct ProfileView: View {
         }
     }
 
+    private var logoutSection: some View {
+        Button {
+            // Placeholder for sign-out logic.
+        } label: {
+            HStack {
+                Image(systemName: "rectangle.portrait.and.arrow.right")
+                Text("Log Out")
+                    .font(.system(size: 16, weight: .semibold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.white)
+                    .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+            )
+        }
+        .foregroundStyle(Color.red)
+    }
+
     private func goalRow(
         title: String,
         value: Binding<Double>,
@@ -117,17 +152,32 @@ struct ProfileView: View {
             } label: {
                 Image(systemName: "minus")
                     .frame(width: 32, height: 32)
-                    .background(Circle().fill(Color.black.opacity(0.08)))
+                    .background(
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                            )
+                    )
             }
             Text("\(Int(value.wrappedValue)) \(suffix)")
                 .font(.system(size: 16, weight: .bold))
+                .contentTransition(.numericText())
                 .frame(width: 90)
             Button {
                 value.wrappedValue = min(range.upperBound, value.wrappedValue + step)
             } label: {
                 Image(systemName: "plus")
                     .frame(width: 32, height: 32)
-                    .background(Circle().fill(Color.black.opacity(0.08)))
+                    .background(
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                            )
+                    )
             }
         }
     }
