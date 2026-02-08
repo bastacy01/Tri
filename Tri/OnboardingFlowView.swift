@@ -159,6 +159,7 @@ struct OnboardingFlowView: View {
             VStack(spacing: 10) {
                 Text("\(Int(dailyGoal)) cal")
                     .font(.system(size: 40, weight: .bold, design: .rounded))
+                    .contentTransition(.numericText())
                 Slider(value: $dailyGoal, in: 200...2500, step: 50)
                     .tint(.black)
             }
@@ -180,7 +181,7 @@ struct OnboardingFlowView: View {
                 .padding(.horizontal, 24)
 
             VStack(spacing: 12) {
-                GoalStepper(label: "Swim (yd)", value: $swimGoal, range: 500...20000, step: 250)
+                GoalStepper(label: "Swim (yd)", value: $swimGoal, range: 500...20000, step: 25)
                 GoalStepper(label: "Bike (mi)", value: $bikeGoal, range: 5...300, step: 5)
                 GoalStepper(label: "Run (mi)", value: $runGoal, range: 2...100, step: 1)
             }
@@ -220,17 +221,32 @@ private struct GoalStepper: View {
             } label: {
                 Image(systemName: "minus")
                     .frame(width: 32, height: 32)
-                    .background(Circle().fill(Color.black.opacity(0.08)))
+                    .background(
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                            )
+                    )
             }
             Text("\(Int(value))")
                 .font(.system(size: 16, weight: .bold))
+                .contentTransition(.numericText())
                 .frame(width: 60)
             Button {
                 value = min(range.upperBound, value + step)
             } label: {
                 Image(systemName: "plus")
                     .frame(width: 32, height: 32)
-                    .background(Circle().fill(Color.black.opacity(0.08)))
+                    .background(
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                            )
+                    )
             }
         }
     }
