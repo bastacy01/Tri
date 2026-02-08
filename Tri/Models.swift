@@ -19,7 +19,7 @@ enum WorkoutType: String, CaseIterable, Identifiable {
         case .swim:
             return "figure.pool.swim"
         case .bike:
-            return "bicycle"
+            return "figure.outdoor.cycle"
         case .run:
             return "figure.run"
         }
