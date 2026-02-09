@@ -13,9 +13,9 @@ final class UserSettings: ObservableObject {
     @AppStorage("hasOnboarded") var hasOnboarded: Bool = false
     @AppStorage("favoriteWorkoutRaw") var favoriteWorkoutRaw: String = WorkoutType.swim.rawValue
     @AppStorage("dailyCaloriesGoal") var dailyCaloriesGoal: Double = 1000
-    @AppStorage("weeklySwimGoal") var weeklySwimGoal: Double = 5000
-    @AppStorage("weeklyBikeGoal") var weeklyBikeGoal: Double = 60
-    @AppStorage("weeklyRunGoal") var weeklyRunGoal: Double = 12
+    @AppStorage("weeklySwimGoal") var weeklySwimGoal: Double = 1000
+    @AppStorage("weeklyBikeGoal") var weeklyBikeGoal: Double = 10
+    @AppStorage("weeklyRunGoal") var weeklyRunGoal: Double = 5
     @AppStorage("streakIncludeSwim") var streakIncludeSwim: Bool = true
     @AppStorage("streakIncludeBike") var streakIncludeBike: Bool = true
     @AppStorage("streakIncludeRun") var streakIncludeRun: Bool = true

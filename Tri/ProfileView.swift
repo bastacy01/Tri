@@ -50,9 +50,9 @@ struct ProfileView: View {
 
             VStack(spacing: 12) {
                 goalRow(title: "Daily Calories", value: $settings.dailyCaloriesGoal, range: 200...2500, step: 50, suffix: "cal")
-                goalRow(title: "Weekly Swim", value: $settings.weeklySwimGoal, range: 500...20000, step: 25, suffix: "yd")
-                goalRow(title: "Weekly Bike", value: $settings.weeklyBikeGoal, range: 5...300, step: 5, suffix: "mi")
-                goalRow(title: "Weekly Run", value: $settings.weeklyRunGoal, range: 2...100, step: 1, suffix: "mi")
+                goalRow(title: "Weekly Swim", value: $settings.weeklySwimGoal, range: 25...20000, step: 25, suffix: "yd")
+                goalRow(title: "Weekly Bike", value: $settings.weeklyBikeGoal, range: 1...300, step: 1, suffix: "mi")
+                goalRow(title: "Weekly Run", value: $settings.weeklyRunGoal, range: 1...100, step: 1, suffix: "mi")
             }
             .padding(16)
             .background(
@@ -160,6 +160,7 @@ struct ProfileView: View {
                                     .stroke(Color.white.opacity(0.7), lineWidth: 1)
                             )
                     )
+                    .foregroundStyle(Color.black)
             }
             Text("\(Int(value.wrappedValue)) \(suffix)")
                 .font(.system(size: 16, weight: .bold))
@@ -178,6 +179,7 @@ struct ProfileView: View {
                                     .stroke(Color.white.opacity(0.7), lineWidth: 1)
                             )
                     )
+                    .foregroundStyle(Color.black)
             }
         }
     }

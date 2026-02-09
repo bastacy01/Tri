@@ -12,9 +12,9 @@ struct OnboardingFlowView: View {
     @EnvironmentObject private var settings: UserSettings
     @State private var step = 0
     @State private var dailyGoal = 1000.0
-    @State private var swimGoal = 5000.0
-    @State private var bikeGoal = 60.0
-    @State private var runGoal = 12.0
+    @State private var swimGoal = 1000.0
+    @State private var bikeGoal = 10.0
+    @State private var runGoal = 5.0
     @State private var favorite: WorkoutType = .swim
 
     var body: some View {
@@ -66,15 +66,19 @@ struct OnboardingFlowView: View {
     }
 
     private var signInStep: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 15) {
             Spacer()
-            Text("Welcome to Tri")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-            Text("Sign in to sync workouts and personalize your goals.")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Color.black.opacity(0.6))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
+            VStack(spacing: 5) {
+                Text("Tri")
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                Text("Triathletes")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                Text("Swim. Bike. Run. Track your progress.")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.6))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
 
             SignInWithAppleButton(.signIn) { _ in
                 // Placeholder for Apple sign-in.
@@ -83,6 +87,7 @@ struct OnboardingFlowView: View {
             }
             .signInWithAppleButtonStyle(.black)
             .frame(height: 48)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .padding(.horizontal, 40)
 
             Button {
@@ -97,10 +102,10 @@ struct OnboardingFlowView: View {
                 .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color.black.opacity(0.15), lineWidth: 1)
+                        .fill(Color.black)
                 )
             }
-            .foregroundStyle(Color.black)
+            .foregroundStyle(Color.white)
             .padding(.horizontal, 40)
 
             Spacer()
@@ -181,9 +186,9 @@ struct OnboardingFlowView: View {
                 .padding(.horizontal, 24)
 
             VStack(spacing: 12) {
-                GoalStepper(label: "Swim (yd)", value: $swimGoal, range: 500...20000, step: 25)
-                GoalStepper(label: "Bike (mi)", value: $bikeGoal, range: 5...300, step: 5)
-                GoalStepper(label: "Run (mi)", value: $runGoal, range: 2...100, step: 1)
+                GoalStepper(label: "Swim (yd)", value: $swimGoal, range: 25...20000, step: 25)
+                GoalStepper(label: "Bike (mi)", value: $bikeGoal, range: 1...300, step: 1)
+                GoalStepper(label: "Run (mi)", value: $runGoal, range: 1...100, step: 1)
             }
             .padding(.horizontal, 24)
 
@@ -210,6 +215,7 @@ private struct GoalStepper: View {
     @Binding var value: Double
     let range: ClosedRange<Double>
     let step: Double
+    @State private var repeatTimer: Timer?
 
     var body: some View {
         HStack {
@@ -229,7 +235,18 @@ private struct GoalStepper: View {
                                     .stroke(Color.white.opacity(0.7), lineWidth: 1)
                             )
                     )
+                    .foregroundStyle(Color.black)
             }
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.25).onEnded { _ in
+                    startRepeating(isIncrement: false)
+                }
+            )
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0).onEnded { _ in
+                    stopRepeating()
+                }
+            )
             Text("\(Int(value))")
                 .font(.system(size: 16, weight: .bold))
                 .contentTransition(.numericText())
@@ -247,7 +264,49 @@ private struct GoalStepper: View {
                                     .stroke(Color.white.opacity(0.7), lineWidth: 1)
                             )
                     )
+                    .foregroundStyle(Color.black)
+            }
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.25).onEnded { _ in
+                    startRepeating(isIncrement: true)
+                }
+            )
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0).onEnded { _ in
+                    stopRepeating()
+                }
+            )
+        }
+        .onDisappear {
+            stopRepeating()
+        }
+    }
+
+    private func startRepeating(isIncrement: Bool) {
+        stopRepeating()
+        var ticks = 0
+        repeatTimer = Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { _ in
+            ticks += 1
+            let multiplier: Double
+            if ticks > 12 {
+                multiplier = 4
+            } else if ticks > 6 {
+                multiplier = 2
+            } else {
+                multiplier = 1
+            }
+            let delta = step * multiplier
+            if isIncrement {
+                value = min(range.upperBound, value + delta)
+            } else {
+                value = max(range.lowerBound, value - delta)
             }
         }
+        RunLoop.main.add(repeatTimer!, forMode: .common)
+    }
+
+    private func stopRepeating() {
+        repeatTimer?.invalidate()
+        repeatTimer = nil
     }
 }
