@@ -10,8 +10,10 @@ import Charts
 
 struct StatisticsView: View {
     @EnvironmentObject private var store: WorkoutStore
-    @State private var period: StatsPeriod = .oneMonth
+    @State private var period: StatsPeriod = .oneWeek
     @State private var selectedPoint: StatPoint?
+    @State private var isInteracting = false
+    @State private var dismissTask: DispatchWorkItem?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -34,10 +36,39 @@ struct StatisticsView: View {
                     .interpolationMethod(.catmullRom)
                 }
                 .chartXAxis {
-                    AxisMarks(position: .bottom) { value in
+                    switch period {
+                    case .oneWeek:
+                        AxisMarks(values: points.map { $0.date }) { value in
+                            AxisGridLine()
+                            AxisValueLabel {
+                                Text(axisLabel(for: value.as(Date.self)))
+                            }
+                        }
+                    case .oneMonth:
+                        AxisMarks(values: .stride(by: .weekOfYear)) { value in
+                            AxisGridLine()
+                            AxisValueLabel {
+                                Text(axisLabel(for: value.as(Date.self)))
+                            }
+                        }
+                    case .sixMonths, .oneYear:
+                        AxisMarks(values: points.map { $0.date }) { value in
+                            AxisGridLine()
+                            AxisValueLabel {
+                                Text(axisLabel(for: value.as(Date.self)))
+                            }
+                        }
+                    }
+                }
+                .chartYAxis {
+                    AxisMarks(position: .trailing) { value in
                         AxisGridLine()
                         AxisValueLabel {
-                            Text(axisLabel(for: value.as(Date.self)))
+                            if let number = value.as(Double.self), number == 0 {
+                                Text("0 (mi)")
+                            } else if let number = value.as(Double.self) {
+                                Text("\(Int(number))")
+                            }
                         }
                     }
                 }
@@ -54,10 +85,16 @@ struct StatisticsView: View {
                                             if let date: Date = proxy.value(atX: x) {
                                                 selectedPoint = closestPoint(to: date, in: points)
                                             }
+                                            isInteracting = true
+                                            cancelDismiss()
+                                        }
+                                        .onEnded { _ in
+                                            isInteracting = false
+                                            scheduleDismiss()
                                         }
                                 )
 
-                            if let selectedPoint,
+                            if let selectedPoint, isInteracting,
                                let xPosition = proxy.position(forX: selectedPoint.date),
                                let yPosition = proxy.position(forY: selectedPoint.value) {
                                 let plotFrame = geometry[proxy.plotAreaFrame]
@@ -97,6 +134,11 @@ struct StatisticsView: View {
                     .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 4)
             )
             .padding(.horizontal, 20)
+            .onChange(of: period) { _, _ in
+                selectedPoint = nil
+                isInteracting = false
+                cancelDismiss()
+            }
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Daily Average Calories")
@@ -110,6 +152,7 @@ struct StatisticsView: View {
                 }
             }
             .padding(.horizontal, 20)
+            .padding(.top, 8)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Weekly Workout Average")
@@ -124,6 +167,7 @@ struct StatisticsView: View {
                 }
             }
             .padding(.horizontal, 20)
+            .padding(.top, 6)
 
             Spacer()
         }
@@ -133,34 +177,45 @@ struct StatisticsView: View {
         let calendar = Calendar.current
         let now = Date()
         switch period {
+        case .oneWeek:
+            guard let weekStart = calendar.dateInterval(of: .weekOfYear, for: now)?.start else { return [] }
+            return aggregateByDay(from: weekStart, days: 7)
         case .oneMonth:
-            guard let start = calendar.date(byAdding: .day, value: -29, to: now) else { return [] }
-            return aggregate(by: .day, from: start, to: now)
+            guard let monthInterval = calendar.dateInterval(of: .month, for: now) else { return [] }
+            return aggregateByDay(from: monthInterval.start, days: calendar.dateComponents([.day], from: monthInterval.start, to: monthInterval.end).day ?? 30)
         case .sixMonths:
-            guard let start = calendar.date(byAdding: .month, value: -5, to: now) else { return [] }
-            return aggregate(by: .month, from: start, to: now)
+            guard let start = calendar.date(byAdding: .month, value: -5, to: startOfMonth(now)) else { return [] }
+            return aggregateByMonth(from: start, months: 6)
         case .oneYear:
-            guard let start = calendar.date(byAdding: .year, value: -1, to: now) else { return [] }
-            return aggregate(by: .month, from: start, to: now)
-        case .all:
-            guard let earliest = store.workouts.map({ $0.date }).min() else { return [] }
-            return aggregate(by: .year, from: earliest, to: now)
+            guard let start = calendar.date(byAdding: .month, value: -11, to: startOfMonth(now)) else { return [] }
+            return aggregateByMonth(from: start, months: 12)
         }
     }
 
-    private func aggregate(by component: Calendar.Component, from start: Date, to end: Date) -> [StatPoint] {
-        let calendar = Calendar.current
+    private func aggregateByDay(from start: Date, days: Int) -> [StatPoint] {
         var result: [StatPoint] = []
         var date = start
-        while date <= end {
-            let interval = calendar.dateInterval(of: component, for: date)
-            let rangeStart = interval?.start ?? date
-            let rangeEnd = interval?.end ?? date
+        for _ in 0..<days {
+            let dayEnd = Calendar.current.date(byAdding: .day, value: 1, to: date) ?? date
             let total = store.workouts
-                .filter { $0.date >= rangeStart && $0.date < rangeEnd }
-                .reduce(0) { $0 + $1.distance }
-            result.append(StatPoint(date: rangeStart, value: total, label: labelFor(date: rangeStart, component: component)))
-            date = calendar.date(byAdding: component, value: 1, to: rangeStart) ?? end.addingTimeInterval(1)
+                .filter { $0.date >= date && $0.date < dayEnd }
+                .reduce(0) { $0 + distanceInMiles($1) }
+            result.append(StatPoint(date: date, value: total, label: labelFor(date: date, component: .day)))
+            date = dayEnd
+        }
+        return result
+    }
+
+    private func aggregateByMonth(from start: Date, months: Int) -> [StatPoint] {
+        var result: [StatPoint] = []
+        var date = start
+        for _ in 0..<months {
+            guard let interval = Calendar.current.dateInterval(of: .month, for: date) else { break }
+            let total = store.workouts
+                .filter { $0.date >= interval.start && $0.date < interval.end }
+                .reduce(0) { $0 + distanceInMiles($1) }
+            result.append(StatPoint(date: interval.start, value: total, label: labelFor(date: interval.start, component: .month)))
+            date = Calendar.current.date(byAdding: .month, value: 1, to: interval.start) ?? interval.end
         }
         return result
     }
@@ -181,12 +236,20 @@ struct StatisticsView: View {
     private func axisLabel(for date: Date?) -> String {
         guard let date else { return "" }
         switch period {
+        case .oneWeek:
+            let formatter = DateFormatter()
+            formatter.dateFormat = "EEE"
+            return formatter.string(from: date)
         case .oneMonth:
             return labelFor(date: date, component: .day)
         case .sixMonths, .oneYear:
-            return labelFor(date: date, component: .month)
-        case .all:
-            return labelFor(date: date, component: .year)
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MMM"
+            let label = formatter.string(from: date)
+            if period == .oneYear {
+                return String(label.prefix(1))
+            }
+            return label
         }
     }
 
@@ -194,33 +257,58 @@ struct StatisticsView: View {
         points.min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) })
     }
 
+    private func distanceInMiles(_ workout: Workout) -> Double {
+        if workout.type == .swim {
+            return workout.distance / 1760.0
+        }
+        return workout.distance
+    }
+
+    private func startOfMonth(_ date: Date) -> Date {
+        Calendar.current.dateInterval(of: .month, for: date)?.start ?? date
+    }
+
+    private func scheduleDismiss() {
+        cancelDismiss()
+        let task = DispatchWorkItem {
+            selectedPoint = nil
+        }
+        dismissTask = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0, execute: task)
+    }
+
+    private func cancelDismiss() {
+        dismissTask?.cancel()
+        dismissTask = nil
+    }
+
     private func statIconCount(type: WorkoutType, count: Int) -> some View {
         HStack(spacing: 6) {
             Image(systemName: type.systemImage)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 16, weight: .semibold))
             Text("\(count)")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
         }
-        .foregroundStyle(Color.black.opacity(0.6))
+        .foregroundStyle(Color.black.opacity(0.85))
     }
 }
 
 enum StatsPeriod: CaseIterable {
+    case oneWeek
     case oneMonth
     case sixMonths
     case oneYear
-    case all
 
     var label: String {
         switch self {
+        case .oneWeek:
+            return "1W"
         case .oneMonth:
             return "1M"
         case .sixMonths:
             return "6M"
         case .oneYear:
             return "1Y"
-        case .all:
-            return "ALL"
         }
     }
 }
