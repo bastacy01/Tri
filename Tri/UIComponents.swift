@@ -185,46 +185,55 @@ struct StreaksSheet: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Capsule()
-                .fill(Color.black.opacity(0.2))
-                .frame(width: 50, height: 6)
-                .padding(.top, 8)
+//            Capsule()
+//                .fill(Color.black.opacity(0.2))
+//                .frame(width: 50, height: 6)
+//                .padding(.top, 8)
 
-            Text("Weekly Streaks")
-                .font(.system(size: 20, weight: .bold, design: .serif))
+            Spacer()
+
+            VStack(spacing: 8) {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 66, weight: .bold))
+                    .foregroundStyle(Color.orange.gradient)
+
+                Text("\(currentStreak)")
+                    .font(.system(size: 58, weight: .bold, design: .rounded))
+                
+                Text("day streak")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.6))
+            }
 
             VStack(spacing: 12) {
-                HStack {
+                HStack(spacing: 8) {
                     Image(systemName: "flame.fill")
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Color.black)
-                    Text("Current streak")
+                    Text("Longest streak")
+                        .font(.system(size: 16, weight: .semibold))
+                    Spacer()
+                    Text("\(longestStreak) days")
+                        .font(.system(size: 16, weight: .bold))
+                }
+
+                HStack(spacing: 8) {
+                    Image(systemName: "figure.run")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.black)
+                    Text("Workout streak")
                         .font(.system(size: 16, weight: .semibold))
                     Spacer()
                     Text("\(currentStreak) weeks")
                         .font(.system(size: 16, weight: .bold))
                 }
-
-                HStack {
-                    Image(systemName: "calendar.badge.clock")
-                        .foregroundStyle(Color.black)
-                    Text("Longest streak")
-                        .font(.system(size: 16, weight: .semibold))
-                    Spacer()
-                    Text("\(longestStreak) weeks")
-                        .font(.system(size: 16, weight: .bold))
-                }
             }
             .padding(.horizontal, 24)
-
-            if !includedTypes.isEmpty {
-                Text("Counting: \(includedTypes.map { $0.rawValue }.joined(separator: ", "))")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.black.opacity(0.6))
-            }
+            .padding(.top, 24)
 
             Spacer()
         }
-        .padding(.bottom, 12)
+        .padding(.top, 20)
     }
 }
 
@@ -307,14 +316,24 @@ struct WorkoutGoalSheet: View {
     let weekTotal: Double
 
     var body: some View {
-        VStack(spacing: 38) {
-            Capsule()
-                .fill(Color.black.opacity(0.2))
-                .frame(width: 50, height: 6)
-                .padding(.top, 8)
-
+        VStack(spacing: 46) {
+//            Capsule()
+//                .fill(Color.black.opacity(0.2))
+//                .frame(width: 50, height: 6)
+//                .padding(.top, 8)
+            
+            Spacer()
+            
             Text("\(type.rawValue) Weekly Goal")
                 .font(.system(size: 20, weight: .bold, design: .serif))
+                .overlay(alignment: .bottom) {
+                    if weeklyGoal > 0, weekTotal >= weeklyGoal {
+                        Text("Completed!")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color.black.opacity(0.6))
+                            .offset(y: 20)
+                    }
+                }
 
             ZStack {
                 RingView(progress: progress, lineWidth: 9, size: 100, tint: .black, background: Color.black.opacity(0.12))
@@ -333,6 +352,6 @@ struct WorkoutGoalSheet: View {
 
             Spacer()
         }
-        .padding(.top, 22)
+        .padding(.top, 24)
     }
 }

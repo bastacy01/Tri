@@ -34,7 +34,7 @@ struct HomeView: View {
                 longestStreak: longestStreak,
                 includedTypes: includedTypes
             )
-            .presentationDetents([.height(260)])
+            .presentationDetents([.height(315)])
             .presentationDragIndicator(.visible)
         }
         .sheet(item: $showGoalSheet) { type in
@@ -44,7 +44,7 @@ struct HomeView: View {
                 weeklyGoal: weeklyGoal(for: type),
                 weekTotal: store.totalDistance(for: type, inWeekContaining: Date())
             )
-            .presentationDetents([.height(300)])
+            .presentationDetents([.height(315)])
             .presentationDragIndicator(.visible)
         }
     }
@@ -53,15 +53,15 @@ struct HomeView: View {
         HStack {
             HStack(spacing: 12) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
                         .fill(Color.black)
-                        .frame(width: 42, height: 42)
+                        .frame(width: 40, height: 40)
                     Text("T.")
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .font(.system(size: 26, weight: .medium, design: .serif))
                         .foregroundStyle(.white)
                 }
                 Text("Tri")
-                    .font(.system(size: 28, weight: .semibold, design: .rounded))
+                    .font(.system(size: 28, weight: .semibold, design: .serif))
             }
 
             Spacer()
@@ -154,7 +154,7 @@ struct HomeView: View {
     private var recentWorkoutsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Recent Workouts")
-                .font(.system(size: 22, weight: .bold, design: .serif))
+                .font(.system(size: 20, weight: .bold, design: .serif))
 
             ForEach(recentWorkouts) { workout in
                 RecentWorkoutRow(workout: workout)
