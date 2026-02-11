@@ -10,7 +10,7 @@ import Charts
 
 struct StatisticsView: View {
     @EnvironmentObject private var store: WorkoutStore
-    @State private var period: StatsPeriod = .oneWeek
+    @State private var period: StatsPeriod = .oneMonth
     @State private var selectedPoint: StatPoint?
     @State private var isInteracting = false
     @State private var dismissTask: DispatchWorkItem?
@@ -144,7 +144,7 @@ struct StatisticsView: View {
                 Text("Daily Average Calories")
                     .font(.system(size: 18, weight: .bold, design: .serif))
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("1000")
+                    Text("\(Int(dailyAverageCalories))")
                         .font(.system(size: 28, weight: .bold, design: .rounded))
                     Text("cal")
                         .font(.system(size: 14, weight: .semibold))
@@ -155,15 +155,15 @@ struct StatisticsView: View {
             .padding(.top, 8)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Weekly Workout Average")
+                Text("Weekly Workouts")
                     .font(.system(size: 18, weight: .bold, design: .serif))
-                Text("8")
+                Text("\(weeklyWorkoutCount)")
                     .font(.system(size: 28, weight: .bold, design: .rounded))
 
                 HStack(spacing: 16) {
-                    statIconCount(type: .swim, count: 2)
-                    statIconCount(type: .bike, count: 3)
-                    statIconCount(type: .run, count: 3)
+                    statIconCount(type: .swim, count: weeklyWorkoutCount(for: .swim))
+                    statIconCount(type: .bike, count: weeklyWorkoutCount(for: .bike))
+                    statIconCount(type: .run, count: weeklyWorkoutCount(for: .run))
                 }
             }
             .padding(.horizontal, 20)
@@ -274,6 +274,24 @@ struct StatisticsView: View {
         Calendar.current.dateInterval(of: .month, for: date)?.start ?? date
     }
 
+    private var dailyAverageCalories: Double {
+        let calendar = Calendar.current
+        let today = Date()
+        guard let weekStart = calendar.dateInterval(of: .weekOfYear, for: today)?.start else { return 0 }
+        guard let end = calendar.date(byAdding: .day, value: -1, to: today) else { return 0 }
+        if end < weekStart { return 0 }
+        var days = 0
+        var total = 0.0
+        var date = weekStart
+        while date <= end {
+            total += store.totalCalories(on: date, calendar: calendar)
+            days += 1
+            date = calendar.date(byAdding: .day, value: 1, to: date) ?? end.addingTimeInterval(1)
+        }
+        guard days > 0 else { return 0 }
+        return total / Double(days)
+    }
+
     private func scheduleDismiss() {
         cancelDismiss()
         let task = DispatchWorkItem {
@@ -288,14 +306,29 @@ struct StatisticsView: View {
         dismissTask = nil
     }
 
+    private var weeklyWorkoutCount: Int {
+        weeklyWorkouts().count
+    }
+
+    private func weeklyWorkoutCount(for type: WorkoutType) -> Int {
+        weeklyWorkouts().filter { $0.type == type }.count
+    }
+
+    private func weeklyWorkouts() -> [Workout] {
+        let calendar = Calendar.current
+        guard let weekStart = calendar.dateInterval(of: .weekOfYear, for: Date())?.start else { return [] }
+        return store.workouts.filter { $0.date >= weekStart }
+    }
+
     private func statIconCount(type: WorkoutType, count: Int) -> some View {
         HStack(spacing: 6) {
             Image(systemName: type.systemImage)
                 .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Color.black.opacity(0.65))
             Text("\(count)")
                 .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color.black)
         }
-        .foregroundStyle(Color.black.opacity(0.85))
     }
 }
 
