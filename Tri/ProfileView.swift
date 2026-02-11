@@ -15,23 +15,9 @@ struct ProfileView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 20) {
-                HStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                Circle()
-                                    .stroke(Color.white.opacity(0.7), lineWidth: 1)
-                            )
-                            .frame(width: 54, height: 54)
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(Color.black)
-                    }
-                    Text("Profile")
-                        .font(.system(size: 26, weight: .bold, design: .serif))
-                }
-                .padding(.top, 12)
+                Text("Profile")
+                    .font(.system(size: 26, weight: .bold, design: .serif))
+                    .padding(.top, 12)
 
                 goalsSection
                 streakSection
