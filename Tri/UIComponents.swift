@@ -66,23 +66,39 @@ struct LiquidTabBar: View {
             )
 
             Button {
-                showAddWorkout = true
+                if selectedTab == .home {
+                    showAddWorkout = true
+                }
             } label: {
                 Image(systemName: "plus")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(Color.black)
-                    .frame(width: 52, height: 52)
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(selectedTab == .home ? Color.white : Color.black)
+                    .frame(width: 58, height: 58)
                     .background(
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                            .overlay(
+                        ZStack {
+                            if selectedTab == .home {
                                 Circle()
-                                    .stroke(Color.white.opacity(0.7), lineWidth: 1)
-                            )
-                            .shadow(color: Color.black.opacity(0.12), radius: 16, x: 0, y: 6)
+                                    .fill(Color.black)
+                                    .shadow(color: Color.black.opacity(0.22), radius: 18, x: 0, y: 8)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                                            .blur(radius: 0.5)
+                                    )
+                            } else {
+                                Circle()
+                                    .fill(Color.white)
+                                    .shadow(color: Color.black.opacity(0.12), radius: 16, x: 0, y: 6)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                                    )
+                            }
+                        }
                     )
             }
             .buttonStyle(.plain)
+            .disabled(selectedTab != .home)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
@@ -181,6 +197,7 @@ struct RecentWorkoutRow: View {
 struct StreaksSheet: View {
     let currentStreak: Int
     let longestStreak: Int
+    let weeklyStreak: Int
     let includedTypes: [WorkoutType]
 
     var body: some View {
@@ -224,7 +241,7 @@ struct StreaksSheet: View {
                     Text("Workout streak")
                         .font(.system(size: 16, weight: .semibold))
                     Spacer()
-                    Text("\(currentStreak) weeks")
+                    Text("\(weeklyStreak) weeks")
                         .font(.system(size: 16, weight: .bold))
                 }
             }
@@ -353,5 +370,83 @@ struct WorkoutGoalSheet: View {
             Spacer()
         }
         .padding(.top, 24)
+    }
+}
+
+struct WorkoutDetailSheet: View {
+    let workout: Workout
+    let onDelete: () -> Void
+
+    var body: some View {
+        VStack(spacing: 18) {
+            HStack(alignment: .center, spacing: 12) {
+                Image(systemName: workout.type.systemImage)
+                    .font(.system(size: 34, weight: .semibold))
+                    .foregroundStyle(Color.black)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(workout.type.rawValue)
+                        .font(.system(size: 22, weight: .bold, design: .serif))
+                    Text(formattedDate(workout.date))
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.black.opacity(0.5))
+                }
+
+                Spacer()
+            }
+            VStack {
+                Text("Workout Details")
+                    .font(.system(size: 18, weight: .bold, design: .serif))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(spacing: 16) {
+                    detailBlock(title: "Time", value: workout.durationString)
+                    detailBlock(title: "Distance", value: workout.distanceString)
+                    detailBlock(title: "Calories", value: "\(workout.caloriesString) cal")
+                }
+            }
+            .padding(.top, 18)
+
+            Spacer()
+
+            Button {
+                onDelete()
+            } label: {
+                Text("Delete Workout")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.white)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(Color.black)
+                    )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 24)
+    }
+
+    private func formattedDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "M/d/yy"
+        return formatter.string(from: date)
+    }
+
+    private func detailBlock(title: String, value: String) -> some View {
+        VStack(spacing: 6) {
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.black.opacity(0.5))
+            Text(value)
+                .font(.system(size: 20, weight: .bold, design: .serif))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.black.opacity(0.04))
+        )
     }
 }
