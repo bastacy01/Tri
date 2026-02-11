@@ -27,13 +27,13 @@ struct StatisticsView: View {
                 Text("Track Progress")
                     .font(.system(size: 18, weight: .bold, design: .serif))
 
-                Chart(points) { point in
+                Chart(clampedPoints) { point in
                     LineMark(
                         x: .value("Date", point.date),
                         y: .value("Distance", point.value)
                     )
                     .foregroundStyle(Color.black)
-                    .interpolationMethod(.catmullRom)
+                    .interpolationMethod(.monotone) // .interpolationMethod(.catmullRom) Changed to remove dip below x-axis
                 }
                 .chartXAxis {
                     switch period {
@@ -189,6 +189,12 @@ struct StatisticsView: View {
         case .oneYear:
             guard let start = calendar.date(byAdding: .month, value: -11, to: startOfMonth(now)) else { return [] }
             return aggregateByMonth(from: start, months: 12)
+        }
+    }
+
+    private var clampedPoints: [StatPoint] {
+        dataPoints.map { point in
+            StatPoint(date: point.date, value: max(0, point.value), label: point.label)
         }
     }
 
