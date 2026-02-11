@@ -12,6 +12,7 @@ struct HomeView: View {
     @EnvironmentObject private var store: WorkoutStore
     @State private var showStreaks = false
     @State private var showGoalSheet: WorkoutType?
+    @State private var selectedWorkout: Workout?
 
     private let calendar = Calendar.current
 
@@ -30,8 +31,9 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showStreaks) {
             StreaksSheet(
-                currentStreak: currentStreak,
-                longestStreak: longestStreak,
+                currentStreak: currentDailyStreak,
+                longestStreak: longestDailyStreak,
+                weeklyStreak: currentWeeklyStreak,
                 includedTypes: includedTypes
             )
             .presentationDetents([.height(315)])
@@ -44,6 +46,14 @@ struct HomeView: View {
                 weeklyGoal: weeklyGoal(for: type),
                 weekTotal: store.totalDistance(for: type, inWeekContaining: Date())
             )
+            .presentationDetents([.height(315)])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $selectedWorkout) { workout in
+            WorkoutDetailSheet(workout: workout) {
+                store.deleteWorkout(workout)
+                selectedWorkout = nil
+            }
             .presentationDetents([.height(315)])
             .presentationDragIndicator(.visible)
         }
@@ -72,7 +82,7 @@ struct HomeView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "flame.fill")
                         .foregroundStyle(Color.black)
-                    Text("\(currentStreak)")
+                    Text("\(currentDailyStreak)")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Color.black)
                 }
@@ -156,8 +166,21 @@ struct HomeView: View {
             Text("Recent Workouts")
                 .font(.system(size: 20, weight: .bold, design: .serif))
 
-            ForEach(recentWorkouts) { workout in
-                RecentWorkoutRow(workout: workout)
+            ForEach(store.workouts.prefix(3)) { workout in
+                Button {
+                    selectedWorkout = workout
+                } label: {
+                    RecentWorkoutRow(
+                        workout: RecentWorkout(
+                            type: workout.type,
+                            distance: workout.distanceString,
+                            duration: workout.durationString,
+                            calories: workout.caloriesString,
+                            date: formattedDate(workout.date)
+                        )
+                    )
+                }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -185,18 +208,10 @@ struct HomeView: View {
         }
     }
 
-    private var recentWorkouts: [RecentWorkout] {
+    private func formattedDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "M/d/yy"
-        return store.workouts.prefix(3).map {
-            RecentWorkout(
-                type: $0.type,
-                distance: $0.distanceString,
-                duration: $0.durationString,
-                calories: $0.caloriesString,
-                date: formatter.string(from: $0.date)
-            )
-        }
+        return formatter.string(from: date)
     }
 
     private func weeklyGoal(for type: WorkoutType) -> Double {
@@ -216,15 +231,11 @@ struct HomeView: View {
         return goal == 0 ? 0 : total / goal
     }
 
-    private var currentStreak: Int {
-        streakCounts().current
+    private var currentWeeklyStreak: Int {
+        weeklyStreakCounts().current
     }
 
-    private var longestStreak: Int {
-        streakCounts().longest
-    }
-
-    private func streakCounts() -> (current: Int, longest: Int) {
+    private func weeklyStreakCounts() -> (current: Int, longest: Int) {
         let weeks = lastNWeeks(52)
         guard !weeks.isEmpty else { return (0, 0) }
 
@@ -242,6 +253,43 @@ struct HomeView: View {
         var current = 0
         for weekStart in weeks.reversed() {
             if isWeekCompleted(weekStart: weekStart) {
+                current += 1
+            } else {
+                break
+            }
+        }
+        return (current, longest)
+    }
+
+    private var currentDailyStreak: Int {
+        dailyStreakCounts().current
+    }
+
+    private var longestDailyStreak: Int {
+        dailyStreakCounts().longest
+    }
+
+    private func dailyStreakCounts() -> (current: Int, longest: Int) {
+        let goal = settings.dailyCaloriesGoal
+        guard goal > 0 else { return (0, 0) }
+        let dates = lastNDates(30)
+        var current = 0
+        var longest = 0
+        var running = 0
+        for date in dates {
+            let calories = store.totalCalories(on: date)
+            if calories >= goal {
+                running += 1
+                longest = max(longest, running)
+            } else {
+                running = 0
+            }
+        }
+
+        current = 0
+        for date in lastNDates(30).reversed() {
+            let calories = store.totalCalories(on: date)
+            if calories >= goal {
                 current += 1
             } else {
                 break
@@ -277,6 +325,13 @@ struct HomeView: View {
         }
         let starts = rawWeeks.compactMap { calendar.dateInterval(of: .weekOfYear, for: $0)?.start }
         return Array(Set(starts)).sorted()
+    }
+
+    private func lastNDates(_ count: Int) -> [Date] {
+        (0..<count).compactMap { offset in
+            calendar.date(byAdding: .day, value: -offset, to: Date())
+        }
+        .reversed()
     }
 
     private func formatDistance(_ value: Double, type: WorkoutType) -> String {
