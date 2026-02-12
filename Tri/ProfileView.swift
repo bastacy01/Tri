@@ -11,18 +11,52 @@ struct ProfileView: View {
     @EnvironmentObject private var settings: UserSettings
     @EnvironmentObject private var store: WorkoutStore
     @State private var showingSyncAlert = false
+    @State private var showAccountMenu = false
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 20) {
-                Text("Profile")
-                    .font(.system(size: 26, weight: .bold, design: .serif))
-                    .padding(.top, 12)
+                HStack {
+                    Text("Profile")
+                        .font(.system(size: 26, weight: .bold, design: .serif))
+                    Spacer()
+                    Button {
+                        withAnimation(.easeOut(duration: 0.15)) {
+                            showAccountMenu.toggle()
+                        }
+                    } label: {
+                        Image(systemName: "person.circle.fill")
+                            .font(.system(size: 26, weight: .semibold))
+                            .foregroundStyle(Color.black.opacity(0.8))
+                    }
+                    .buttonStyle(.plain)
+                    .overlay(alignment: .topTrailing) {
+                        if showAccountMenu {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(settings.userEmail)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(Color.white)
+                                    .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 6)
+                            )
+                            .frame(maxWidth: 260, alignment: .trailing)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .offset(y: 36)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+                    }
+                }
+                .padding(.top, 12)
 
                 goalsSection
                 streakSection
-                healthKitSection
                 logoutSection
+                cancelSection
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 120)
@@ -39,33 +73,6 @@ struct ProfileView: View {
                 goalRow(title: "Weekly Swim", value: $settings.weeklySwimGoal, range: 25...20000, step: 25, suffix: "yd")
                 goalRow(title: "Weekly Bike", value: $settings.weeklyBikeGoal, range: 1...300, step: 1, suffix: "mi")
                 goalRow(title: "Weekly Run", value: $settings.weeklyRunGoal, range: 1...100, step: 1, suffix: "mi")
-            }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(.white)
-                    .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 4)
-            )
-        }
-    }
-
-    private var healthKitSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("HealthKit")
-                .font(.system(size: 20, weight: .bold, design: .serif))
-
-            VStack(spacing: 12) {
-                Toggle("Sync new workouts", isOn: $settings.healthKitSyncEnabled)
-                    .tint(.black)
-                    .onChange(of: settings.healthKitSyncEnabled) { _, value in
-                        if value {
-                            enableHealthKitSync()
-                        }
-                    }
-
-                Text("When enabled, Tri will only pull workouts added after you turn this on.")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.black.opacity(0.55))
             }
             .padding(16)
             .background(
@@ -109,6 +116,26 @@ struct ProfileView: View {
             HStack {
                 Image(systemName: "rectangle.portrait.and.arrow.right")
                 Text("Log Out")
+                    .font(.system(size: 16, weight: .semibold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.white)
+                    .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+            )
+        }
+        .foregroundStyle(Color.black)
+    }
+
+    private var cancelSection: some View {
+        Button {
+            // Placeholder for cancel subscription.
+        } label: {
+            HStack {
+                Image(systemName: "xmark.circle")
+                Text("Cancel Subscription")
                     .font(.system(size: 16, weight: .semibold))
             }
             .frame(maxWidth: .infinity)
@@ -175,7 +202,7 @@ struct ProfileView: View {
         Task { @MainActor in
             do {
                 try await HealthKitManager.shared.requestAuthorization()
-                let startDate = Date()
+                let startDate = settings.healthKitStartDate ?? Date()
                 settings.healthKitStartDate = startDate
                 settings.healthKitLastFetchDate = startDate
                 HealthKitManager.shared.startObservingNewWorkouts(startDateProvider: {
