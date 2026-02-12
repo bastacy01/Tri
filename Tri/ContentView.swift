@@ -68,11 +68,21 @@ struct ContentView: View {
     private func startHealthKitIfEnabled() {
 #if canImport(HealthKit)
         guard settings.healthKitSyncEnabled else { return }
-        HealthKitManager.shared.startObservingNewWorkouts(startDateProvider: {
-            settings.healthKitLastFetchDate ?? settings.healthKitStartDate ?? Date()
-        }) { workouts, lastFetch in
-            store.mergeHealthKitWorkouts(workouts)
-            settings.healthKitLastFetchDate = lastFetch
+        Task { @MainActor in
+            do {
+                try await HealthKitManager.shared.requestAuthorization()
+                let startDate = settings.healthKitStartDate ?? Date()
+                settings.healthKitStartDate = startDate
+                settings.healthKitLastFetchDate = startDate
+                HealthKitManager.shared.startObservingNewWorkouts(startDateProvider: {
+                    settings.healthKitLastFetchDate ?? startDate
+                }) { workouts, lastFetch in
+                    store.mergeHealthKitWorkouts(workouts)
+                    settings.healthKitLastFetchDate = lastFetch
+                }
+            } catch {
+                settings.healthKitSyncEnabled = false
+            }
         }
 #endif
     }
