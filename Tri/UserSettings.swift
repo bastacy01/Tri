@@ -19,9 +19,10 @@ final class UserSettings: ObservableObject {
     @AppStorage("streakIncludeSwim") var streakIncludeSwim: Bool = true
     @AppStorage("streakIncludeBike") var streakIncludeBike: Bool = true
     @AppStorage("streakIncludeRun") var streakIncludeRun: Bool = true
-    @AppStorage("healthKitSyncEnabled") var healthKitSyncEnabled: Bool = false
+    @AppStorage("healthKitSyncEnabled") var healthKitSyncEnabled: Bool = true
     @AppStorage("healthKitSyncStart") var healthKitSyncStart: Double = 0
     @AppStorage("healthKitLastFetch") var healthKitLastFetch: Double = 0
+    @AppStorage("userEmail") var userEmail: String = "user@triapp.com"
 
     var favoriteWorkout: WorkoutType {
         get { WorkoutType(rawValue: favoriteWorkoutRaw) ?? .swim }
