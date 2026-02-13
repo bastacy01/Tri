@@ -61,6 +61,7 @@ struct ProfileView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 120)
         }
+        .scrollDisabled(true)
     }
 
     private var goalsSection: some View {
