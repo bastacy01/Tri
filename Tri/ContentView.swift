@@ -60,7 +60,8 @@ struct ContentView: View {
             AddWorkoutSheet { workout in
                 store.addManualWorkout(workout)
             }
-            .presentationDetents([.medium])
+//            .presentationDetents([.large])
+            .presentationDetents([.height(505)])
             .presentationDragIndicator(.visible)
         }
     }
