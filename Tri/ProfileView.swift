@@ -12,6 +12,7 @@ struct ProfileView: View {
     @EnvironmentObject private var store: WorkoutStore
     @State private var showingSyncAlert = false
     @State private var showAccountMenu = false
+    @State private var showSettingsSheet = false
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -55,13 +56,19 @@ struct ProfileView: View {
 
                 goalsSection
                 streakSection
+                settingsSection
                 logoutSection
-                cancelSection
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 120)
         }
         .scrollDisabled(true)
+        .sheet(isPresented: $showSettingsSheet) {
+            settingsSheet
+//                .presentationDetents([.height(320)])
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     private var goalsSection: some View {
@@ -110,6 +117,26 @@ struct ProfileView: View {
         }
     }
 
+    private var settingsSection: some View {
+        Button {
+            showSettingsSheet = true
+        } label: {
+            HStack {
+                Image(systemName: "gearshape")
+                Text("Settings")
+                    .font(.system(size: 16, weight: .semibold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.white)
+                    .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+            )
+        }
+        .foregroundStyle(Color.black)
+    }
+
     private var logoutSection: some View {
         Button {
             // Placeholder for sign-out logic.
@@ -125,29 +152,96 @@ struct ProfileView: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.white)
                     .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
-            )
+                )
         }
         .foregroundStyle(Color.black)
     }
 
-    private var cancelSection: some View {
-        Button {
-            // Placeholder for cancel subscription.
-        } label: {
-            HStack {
-                Image(systemName: "xmark.circle")
-                Text("Cancel Subscription")
-                    .font(.system(size: 16, weight: .semibold))
+    private var settingsSheet: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Settings")
+                .font(.system(size: 24, weight: .bold, design: .serif))
+
+            HStack(spacing: 10) {
+                Image(systemName: "envelope")
+                    .font(.system(size: 15, weight: .semibold))
+                Text("Email: \(settings.userEmail)")
+                    .font(.system(size: 15, weight: .semibold))
+                Spacer()
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.white)
                     .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
             )
+
+            HStack(spacing: 10) {
+                Image(systemName: "creditcard")
+                    .font(.system(size: 15, weight: .semibold))
+                Text("Plan: \(subscriptionPlan)")
+                    .font(.system(size: 15, weight: .semibold))
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.white)
+                    .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+            )
+
+            if let privacyURL = URL(string: "https://example.com/privacy-policy") {
+                Link(destination: privacyURL) {
+                    HStack {
+                        Image(systemName: "hand.raised")
+                        Text("Privacy Policy")
+                            .font(.system(size: 16, weight: .semibold))
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundStyle(Color.black)
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.white)
+                            .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+                    )
+                }
+            }
+
+            Spacer()
+
+            Button {
+                // Placeholder for cancel subscription.
+            } label: {
+                HStack {
+                    Image(systemName: "xmark.circle")
+                    Text("Cancel Subscription")
+                        .font(.system(size: 16, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.white)
+                        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+                )
+            }
+            .foregroundStyle(Color.red)
         }
-        .foregroundStyle(Color.red)
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+        .padding(.bottom, 24)
+    }
+
+    private var subscriptionPlan: String {
+        "Tri Pro ($4.99/month)"
     }
 
     private func goalRow(
