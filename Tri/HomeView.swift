@@ -36,7 +36,7 @@ struct HomeView: View {
                 weeklyStreak: currentWeeklyStreak,
                 includedTypes: includedTypes
             )
-            .presentationDetents([.height(315)])
+            .presentationDetents([.height(318)])
             .presentationDragIndicator(.visible)
         }
         .sheet(item: $showGoalSheet) { type in
@@ -46,7 +46,7 @@ struct HomeView: View {
                 weeklyGoal: weeklyGoal(for: type),
                 weekTotal: store.totalDistance(for: type, inWeekContaining: Date())
             )
-            .presentationDetents([.height(315)])
+            .presentationDetents([.height(318)])
             .presentationDragIndicator(.visible)
         }
         .sheet(item: $selectedWorkout) { workout in
@@ -54,7 +54,7 @@ struct HomeView: View {
                 store.deleteWorkout(workout)
                 selectedWorkout = nil
             }
-            .presentationDetents([.height(315)])
+            .presentationDetents([.height(318)])
             .presentationDragIndicator(.visible)
         }
     }
