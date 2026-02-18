@@ -33,75 +33,71 @@ struct RingView: View {
 struct LiquidTabBar: View {
     @Binding var selectedTab: Tab
     @Binding var showAddWorkout: Bool
+    private let barWidth: CGFloat = 365
 
     var body: some View {
-        HStack(spacing: 16) {
-            HStack {
-                ForEach(Tab.allCases, id: \.self) { tab in
-                    Button {
-                        selectedTab = tab
-                    } label: {
-                        VStack(spacing: 6) {
-                            Image(systemName: tab.systemImage)
-                                .font(.system(size: 18, weight: .semibold))
-                            Text(tab.rawValue)
-                                .font(.system(size: 12, weight: .semibold))
-                        }
-                        .foregroundStyle(selectedTab == tab ? Color.black : Color.black.opacity(0.45))
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        Capsule(style: .continuous)
-                            .stroke(Color.white.opacity(0.7), lineWidth: 1)
-                    )
-                    .shadow(color: Color.black.opacity(0.12), radius: 18, x: 0, y: 8)
-            )
+        ZStack(alignment: .bottomTrailing) {
+            tabCapsule
+                .frame(maxWidth: .infinity)
 
-            Button {
-                if selectedTab == .home {
+            if selectedTab == .home {
+                Button {
                     showAddWorkout = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundStyle(Color.black)
+                        .frame(width: 58, height: 58)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                                )
+                                .shadow(color: Color.black.opacity(0.12), radius: 12, x: 0, y: 5)
+                        )
                 }
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(selectedTab == .home ? Color.white : Color.black)
-                    .frame(width: 58, height: 58)
-                    .background(
-                        ZStack {
-                            if selectedTab == .home {
-                                Circle()
-                                    .fill(Color.black)
-                                    .shadow(color: Color.black.opacity(0.22), radius: 18, x: 0, y: 8)
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.white.opacity(0.18), lineWidth: 1)
-                                            .blur(radius: 0.5)
-                                    )
-                            } else {
-                                Circle()
-                                    .fill(Color.white)
-                                    .shadow(color: Color.black.opacity(0.12), radius: 16, x: 0, y: 6)
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.white.opacity(0.7), lineWidth: 1)
-                                    )
-                            }
-                        }
-                    )
+                .buttonStyle(.plain)
+                .offset(y: -68)
+                .transition(.opacity)
             }
-            .buttonStyle(.plain)
-            .disabled(selectedTab != .home)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
+    }
+
+    private var tabCapsule: some View {
+        HStack {
+            ForEach(Tab.allCases, id: \.self) { tab in
+                Button {
+                    selectedTab = tab
+                } label: {
+                    VStack(spacing: 6) {
+                        Image(systemName: tab.systemImage)
+                            .font(.system(size: 18, weight: .semibold))
+                        Text(tab.rawValue)
+                            .font(.system(size: 12, weight: .semibold))
+                            .offset(y: tab == .home ? -1.5 : 0)
+                    }
+                    .foregroundStyle(selectedTab == tab ? Color.black : Color.black.opacity(0.45))
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(width: barWidth)
+        .background(
+            Capsule(style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.12), radius: 18, x: 0, y: 8)
+        )
     }
 }
 
