@@ -11,7 +11,6 @@ struct ProfileView: View {
     @EnvironmentObject private var settings: UserSettings
     @EnvironmentObject private var store: WorkoutStore
     @State private var showingSyncAlert = false
-    @State private var showAccountMenu = false
     @State private var showSettingsSheet = false
 
     var body: some View {
@@ -22,41 +21,19 @@ struct ProfileView: View {
                         .font(.system(size: 26, weight: .bold, design: .serif))
                     Spacer()
                     Button {
-                        withAnimation(.easeOut(duration: 0.15)) {
-                            showAccountMenu.toggle()
-                        }
+                        showSettingsSheet = true
                     } label: {
-                        Image(systemName: "person.circle.fill")
-                            .font(.system(size: 26, weight: .semibold))
-                            .foregroundStyle(Color.black.opacity(0.8))
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 24, weight: .regular))
+                            .foregroundStyle(Color.black)
                     }
                     .buttonStyle(.plain)
-                    .overlay(alignment: .topTrailing) {
-                        if showAccountMenu {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(settings.userEmail)
-                                    .font(.system(size: 12, weight: .medium))
-                                    .lineLimit(1)
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(Color.white)
-                                    .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 6)
-                            )
-                            .frame(maxWidth: 260, alignment: .trailing)
-                            .fixedSize(horizontal: true, vertical: false)
-                            .offset(y: 36)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                        }
-                    }
                 }
                 .padding(.top, 12)
 
                 goalsSection
                 streakSection
-                settingsSection
+                    .padding(.top, 8)
                 logoutSection
             }
             .padding(.horizontal, 20)
@@ -117,26 +94,6 @@ struct ProfileView: View {
         }
     }
 
-    private var settingsSection: some View {
-        Button {
-            showSettingsSheet = true
-        } label: {
-            HStack {
-                Image(systemName: "gearshape")
-                Text("Settings")
-                    .font(.system(size: 16, weight: .semibold))
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.white)
-                    .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
-            )
-        }
-        .foregroundStyle(Color.black)
-    }
-
     private var logoutSection: some View {
         Button {
             // Placeholder for sign-out logic.
@@ -155,6 +112,7 @@ struct ProfileView: View {
                 )
         }
         .foregroundStyle(Color.black)
+        .padding(.top, 60)
     }
 
     private var settingsSheet: some View {
