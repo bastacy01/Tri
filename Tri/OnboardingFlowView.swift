@@ -11,28 +11,35 @@ import AuthenticationServices
 struct OnboardingFlowView: View {
     @EnvironmentObject private var settings: UserSettings
     @State private var step = 0
+    @State private var maxUnlockedStep = 0
+    @State private var minimumAllowedStep = 0
     @State private var dailyGoal = 1000.0
     @State private var swimGoal = 1000.0
     @State private var bikeGoal = 10.0
     @State private var runGoal = 5.0
     @State private var favorite: WorkoutType = .swim
+    @State private var hasCompletedSignIn = false
+    @State private var healthChoice: Bool?
+    @State private var showSkipConfirmation = false
 
     var body: some View {
         VStack {
             TabView(selection: $step) {
                 signInStep
                     .tag(0)
-                favoriteStep
+                healthConnectStep
                     .tag(1)
-                caloriesGoalStep
+                favoriteStep
                     .tag(2)
-                weeklyGoalsStep
+                caloriesGoalStep
                     .tag(3)
+                weeklyGoalsStep
+                    .tag(4)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
 
             HStack(spacing: 12) {
-                ForEach(0..<4, id: \.self) { index in
+                ForEach(0..<5, id: \.self) { index in
                     Capsule()
                         .fill(index == step ? Color.black : Color.black.opacity(0.15))
                         .frame(width: index == step ? 24 : 8, height: 6)
@@ -43,13 +50,13 @@ struct OnboardingFlowView: View {
             Button {
                 advance()
             } label: {
-                Text(step == 3 ? "Finish" : "Continue")
+                Text(step == 4 ? "Finish" : "Continue")
                     .font(.system(size: 16, weight: .semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(Color.black)
+                            .fill(canContinueOnCurrentStep ? Color.black : Color.gray.opacity(0.45))
                     )
                     .foregroundStyle(.white)
             }
@@ -62,6 +69,29 @@ struct OnboardingFlowView: View {
             bikeGoal = settings.weeklyBikeGoal
             runGoal = settings.weeklyRunGoal
             favorite = settings.favoriteWorkout
+            hasCompletedSignIn = settings.userEmail != "user@triapp.com"
+            healthChoice = nil
+            step = 0
+            maxUnlockedStep = 0
+            minimumAllowedStep = 0
+        }
+        .onChange(of: step) { _, newValue in
+            if newValue < minimumAllowedStep {
+                step = minimumAllowedStep
+                return
+            }
+            if newValue > maxUnlockedStep {
+                step = maxUnlockedStep
+            }
+        }
+        .alert("Skip Apple Health Sync?", isPresented: $showSkipConfirmation) {
+            Button("Back", role: .cancel) {}
+            Button("Confirm") {
+                healthChoice = false
+                settings.healthKitSyncEnabled = false
+            }
+        } message: {
+            Text("Smartwatch workouts will not sync to Tri. You can still add workouts manually.")
         }
     }
 
@@ -83,7 +113,7 @@ struct OnboardingFlowView: View {
             SignInWithAppleButton(.signIn) { _ in
                 // Placeholder for Apple sign-in.
             } onCompletion: { _ in
-                // Placeholder for Apple sign-in.
+                hasCompletedSignIn = true
             }
             .signInWithAppleButtonStyle(.black)
             .frame(height: 48)
@@ -92,6 +122,7 @@ struct OnboardingFlowView: View {
 
             Button {
                 // Placeholder for Google sign-in.
+                hasCompletedSignIn = true
             } label: {
                 HStack {
                     Image(systemName: "globe")
@@ -109,6 +140,60 @@ struct OnboardingFlowView: View {
             .padding(.horizontal, 40)
 
             Spacer()
+        }
+    }
+
+    private var healthConnectStep: some View {
+        VStack(spacing: 20) {
+            Spacer()
+
+            VStack(spacing: 10) {
+                Text("Connect Apple Health")
+                    .font(.system(size: 26, weight: .bold, design: .serif))
+                Text("Tri syncs workouts recorded on Apple Watch")
+                    .font(.system(size: 15, weight: .semibold, design: .serif))
+                    .foregroundStyle(Color.black.opacity(0.58))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 28)
+                Button {
+                    healthChoice = true
+                    settings.healthKitSyncEnabled = true
+                    requestHealthAccess()
+                } label: {
+                    Text("Connect Apple Health")
+                        .font(.system(size: 15, weight: .semibold, design: .serif))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(healthChoice == true ? Color.black : Color.white)
+                                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+                        )
+                        .foregroundStyle(healthChoice == true ? Color.white : Color.black)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 40)
+                .padding(.top, 20)
+            }
+
+            Spacer()
+
+            Button {
+                showSkipConfirmation = true
+            } label: {
+                (
+                    Text("Skip for now")
+                        .foregroundStyle(Color.black)
+                    +
+                    Text(" (manual entry only)")
+                        .foregroundStyle(Color.black.opacity(0.6))
+                )
+                .font(.system(size: 13, weight: .semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 11)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 40)
         }
     }
 
@@ -197,8 +282,12 @@ struct OnboardingFlowView: View {
     }
 
     private func advance() {
-        if step < 3 {
+        if step < 4 {
             step += 1
+            maxUnlockedStep = max(maxUnlockedStep, step)
+            if step >= 2 {
+                minimumAllowedStep = 2
+            }
             return
         }
         settings.favoriteWorkout = favorite
@@ -207,6 +296,30 @@ struct OnboardingFlowView: View {
         settings.weeklyBikeGoal = bikeGoal
         settings.weeklyRunGoal = runGoal
         settings.hasOnboarded = true
+    }
+
+    private var canContinueOnCurrentStep: Bool {
+        switch step {
+        case 0:
+            return hasCompletedSignIn
+        case 1:
+            return healthChoice != nil
+        default:
+            return true
+        }
+    }
+
+    private func requestHealthAccess() {
+#if canImport(HealthKit)
+        Task { @MainActor in
+            do {
+                try await HealthKitManager.shared.requestAuthorization()
+            } catch {
+                settings.healthKitSyncEnabled = false
+                healthChoice = false
+            }
+        }
+#endif
     }
 }
 
@@ -308,5 +421,13 @@ private struct GoalStepper: View {
     private func stopRepeating() {
         repeatTimer?.invalidate()
         repeatTimer = nil
+    }
+}
+
+struct OnboardingFlowView_Previews: PreviewProvider {
+    static var previews: some View {
+        OnboardingFlowView()
+            .environmentObject(UserSettings())
+            .environmentObject(WorkoutStore())
     }
 }
