@@ -15,19 +15,23 @@ struct HomeView: View {
     @State private var selectedWorkout: Workout?
 
     private let calendar = Calendar.current
+    private let fixedHeaderInset: CGFloat = 82
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 20) {
-                header
-                weekRings
-                caloriesCard
-                workoutCardsRow
-                recentWorkoutsSection
+        ZStack(alignment: .top) {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 20) {
+                    weekRings
+                    caloriesCard
+                    workoutCardsRow
+                    recentWorkoutsSection
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 120)
+                .padding(.top, fixedHeaderInset)
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 120)
-            .padding(.top, 16)
+
+            fixedHeader
         }
         .sheet(isPresented: $showStreaks) {
             StreaksSheet(
@@ -57,6 +61,18 @@ struct HomeView: View {
             .presentationDetents([.height(318)])
             .presentationDragIndicator(.visible)
         }
+    }
+
+    private var fixedHeader: some View {
+        header
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 10)
+            .background(
+                Color(white: 0.97)
+                    .opacity(0.98)
+                    .ignoresSafeArea(edges: .top)
+            )
     }
 
     private var header: some View {
@@ -182,7 +198,9 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain)
             }
+            .padding(.vertical, 1)
         }
+        .padding(.vertical, 2)
     }
 
     private var weekDayRings: [DayRing] {
