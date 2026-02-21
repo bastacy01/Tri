@@ -6,13 +6,34 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		F02772B92F4994AB00FDA881 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = F02772B82F4994AB00FDA881 /* FirebaseAnalytics */; };
+		F02772BB2F4994AB00FDA881 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = F02772BA2F4994AB00FDA881 /* FirebaseAuth */; };
+		F02772BD2F4994AB00FDA881 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = F02772BC2F4994AB00FDA881 /* FirebaseCore */; };
+		F02772C52F49A1FE00FDA881 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = F02772C42F49A1FE00FDA881 /* GoogleSignIn */; };
+		F02772C72F49A1FE00FDA881 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = F02772C62F49A1FE00FDA881 /* GoogleSignInSwift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		F0487FF82F3898F2006EA0BA /* Tri.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tri.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		F02772C92F49A24000FDA881 /* Exceptions for "Tri" folder in "Tri" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = F0487FF72F3898F2006EA0BA /* Tri */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		F0487FFA2F3898F2006EA0BA /* Tri */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				F02772C92F49A24000FDA881 /* Exceptions for "Tri" folder in "Tri" target */,
+			);
 			path = Tri;
 			sourceTree = "<group>";
 		};
@@ -23,6 +44,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F02772C72F49A1FE00FDA881 /* GoogleSignInSwift in Frameworks */,
+				F02772B92F4994AB00FDA881 /* FirebaseAnalytics in Frameworks */,
+				F02772C52F49A1FE00FDA881 /* GoogleSignIn in Frameworks */,
+				F02772BD2F4994AB00FDA881 /* FirebaseCore in Frameworks */,
+				F02772BB2F4994AB00FDA881 /* FirebaseAuth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +91,11 @@
 			);
 			name = Tri;
 			packageProductDependencies = (
+				F02772B82F4994AB00FDA881 /* FirebaseAnalytics */,
+				F02772BA2F4994AB00FDA881 /* FirebaseAuth */,
+				F02772BC2F4994AB00FDA881 /* FirebaseCore */,
+				F02772C42F49A1FE00FDA881 /* GoogleSignIn */,
+				F02772C62F49A1FE00FDA881 /* GoogleSignInSwift */,
 			);
 			productName = Tri;
 			productReference = F0487FF82F3898F2006EA0BA /* Tri.app */;
@@ -94,6 +125,10 @@
 			);
 			mainGroup = F0487FEF2F3898F2006EA0BA;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				F02772B72F4994AB00FDA881 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				F02772C32F49A1FE00FDA881 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F0487FF92F3898F2006EA0BA /* Products */;
 			projectDirPath = "";
@@ -251,11 +286,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Tri/Tri.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = SJBZ7C97HL;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Tri/Info.plist;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Tri uses HealthKit to read your workouts and calories so we can track your progress.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -267,7 +304,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.bastacy.Tri;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bastacy.tri;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -284,11 +321,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Tri/Tri.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = SJBZ7C97HL;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Tri/Info.plist;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Tri uses HealthKit to read your workouts and calories so we can track your progress.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -300,7 +339,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.bastacy.Tri;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bastacy.tri;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -334,6 +373,53 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		F02772B72F4994AB00FDA881 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.9.0;
+			};
+		};
+		F02772C32F49A1FE00FDA881 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		F02772B82F4994AB00FDA881 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F02772B72F4994AB00FDA881 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		F02772BA2F4994AB00FDA881 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F02772B72F4994AB00FDA881 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		F02772BC2F4994AB00FDA881 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F02772B72F4994AB00FDA881 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		F02772C42F49A1FE00FDA881 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F02772C32F49A1FE00FDA881 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		F02772C62F49A1FE00FDA881 /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F02772C32F49A1FE00FDA881 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = F0487FF02F3898F2006EA0BA /* Project object */;
 }
