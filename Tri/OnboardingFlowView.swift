@@ -7,6 +7,14 @@
 
 import SwiftUI
 import AuthenticationServices
+import CryptoKit
+import FirebaseAuth
+import FirebaseCore
+import GoogleSignIn
+import Security
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct OnboardingFlowView: View {
     @EnvironmentObject private var settings: UserSettings
@@ -21,6 +29,8 @@ struct OnboardingFlowView: View {
     @State private var hasCompletedSignIn = false
     @State private var healthChoice: Bool?
     @State private var showSkipConfirmation = false
+    @State private var authErrorMessage: String?
+    @State private var currentNonce: String?
 
     var body: some View {
         VStack {
@@ -69,7 +79,7 @@ struct OnboardingFlowView: View {
             bikeGoal = settings.weeklyBikeGoal
             runGoal = settings.weeklyRunGoal
             favorite = settings.favoriteWorkout
-            hasCompletedSignIn = settings.userEmail != "user@triapp.com"
+            hasCompletedSignIn = Auth.auth().currentUser != nil
             healthChoice = nil
             step = 0
             maxUnlockedStep = 0
@@ -93,6 +103,14 @@ struct OnboardingFlowView: View {
         } message: {
             Text("Smartwatch workouts will not sync to Tri. You can still add workouts manually.")
         }
+        .alert("Sign In Failed", isPresented: Binding(
+            get: { authErrorMessage != nil },
+            set: { if !$0 { authErrorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(authErrorMessage ?? "Please try again.")
+        }
     }
 
     private var signInStep: some View {
@@ -100,20 +118,24 @@ struct OnboardingFlowView: View {
             Spacer()
             VStack(spacing: 5) {
                 Text("Tri")
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .font(.system(size: 32, weight: .bold, design: .serif))
                 Text("Triathletes")
-                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .font(.system(size: 18, weight: .semibold, design: .serif))
                 Text("Swim. Bike. Run. Track your progress.")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold, design: .serif))
                     .foregroundStyle(Color.black.opacity(0.6))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
             }
+            .padding(.bottom, 14)
 
-            SignInWithAppleButton(.signIn) { _ in
-                // Placeholder for Apple sign-in.
-            } onCompletion: { _ in
-                hasCompletedSignIn = true
+            SignInWithAppleButton(.signIn) { request in
+                let nonce = randomNonceString()
+                currentNonce = nonce
+                request.requestedScopes = [.email]
+                request.nonce = sha256(nonce)
+            } onCompletion: { result in
+                handleAppleSignIn(result)
             }
             .signInWithAppleButtonStyle(.black)
             .frame(height: 48)
@@ -121,12 +143,11 @@ struct OnboardingFlowView: View {
             .padding(.horizontal, 40)
 
             Button {
-                // Placeholder for Google sign-in.
-                hasCompletedSignIn = true
+                signInWithGoogle()
             } label: {
                 HStack {
                     Image(systemName: "globe")
-                    Text("Continue with Google")
+                    Text("Sign up with Google")
                         .font(.system(size: 16, weight: .semibold))
                 }
                 .frame(maxWidth: .infinity)
@@ -138,6 +159,7 @@ struct OnboardingFlowView: View {
             }
             .foregroundStyle(Color.white)
             .padding(.horizontal, 40)
+            .disabled(FirebaseApp.app()?.options.clientID == nil)
 
             Spacer()
         }
@@ -198,15 +220,17 @@ struct OnboardingFlowView: View {
     }
 
     private var favoriteStep: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 24) {
             Spacer()
-            Text("Pick a favorite")
-                .font(.system(size: 26, weight: .bold, design: .rounded))
-            Text("Just for fun, which workout do you love most?")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Color.black.opacity(0.6))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
+            VStack(spacing: 4) {
+                Text("Pick a favorite")
+                    .font(.system(size: 26, weight: .bold, design: .serif))
+                Text("Which workout do you love most?")
+                    .font(.system(size: 16, weight: .semibold, design: .serif))
+                    .foregroundStyle(Color.black.opacity(0.6))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
 
             HStack(spacing: 16) {
                 ForEach(WorkoutType.allCases) { type in
@@ -217,7 +241,7 @@ struct OnboardingFlowView: View {
                             Image(systemName: type.systemImage)
                                 .font(.system(size: 26, weight: .semibold))
                             Text(type.rawValue)
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 16, weight: .semibold, design: .serif))
                         }
                         .frame(width: 92, height: 110)
                         .background(
@@ -236,19 +260,21 @@ struct OnboardingFlowView: View {
     }
 
     private var caloriesGoalStep: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 24) {
             Spacer()
-            Text("Daily burn goal")
-                .font(.system(size: 26, weight: .bold, design: .rounded))
-            Text("Set a calories target to keep your streak alive.")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Color.black.opacity(0.6))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
+            VStack(spacing: 4) {
+                Text("Daily burn goal")
+                    .font(.system(size: 26, weight: .bold, design: .serif))
+                Text("Set a calories target to keep your streak alive.")
+                    .font(.system(size: 16, weight: .semibold, design: .serif))
+                    .foregroundStyle(Color.black.opacity(0.6))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
 
             VStack(spacing: 10) {
                 Text("\(Int(dailyGoal)) cal")
-                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                    .font(.system(size: 40, weight: .bold, design: .serif))
                     .contentTransition(.numericText())
                 Slider(value: $dailyGoal, in: 200...2500, step: 50)
                     .tint(.black)
@@ -260,15 +286,17 @@ struct OnboardingFlowView: View {
     }
 
     private var weeklyGoalsStep: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 22) {
             Spacer()
-            Text("Weekly distance goals")
-                .font(.system(size: 26, weight: .bold, design: .rounded))
-            Text("Your home rings will track these totals.")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Color.black.opacity(0.6))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
+            VStack(spacing: 4) {
+                Text("Weekly distance goals")
+                    .font(.system(size: 26, weight: .bold, design: .serif))
+                Text("Your home rings will track these totals.")
+                    .font(.system(size: 16, weight: .semibold, design: .serif))
+                    .foregroundStyle(Color.black.opacity(0.6))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
 
             VStack(spacing: 12) {
                 GoalStepper(label: "Swim (yd)", value: $swimGoal, range: 25...20000, step: 25)
@@ -320,6 +348,112 @@ struct OnboardingFlowView: View {
             }
         }
 #endif
+    }
+
+    private func signInWithGoogle() {
+        guard let clientID = FirebaseApp.app()?.options.clientID else {
+            authErrorMessage = "Missing Firebase client ID configuration."
+            return
+        }
+        guard let rootViewController = topViewController() else {
+            authErrorMessage = "Unable to present Google sign-in."
+            return
+        }
+
+        let config = GIDConfiguration(clientID: clientID)
+        GIDSignIn.sharedInstance.configuration = config
+
+        Task { @MainActor in
+            do {
+                let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController)
+                guard let idToken = result.user.idToken?.tokenString else {
+                    authErrorMessage = "Google sign-in did not return an ID token."
+                    return
+                }
+                let credential = GoogleAuthProvider.credential(
+                    withIDToken: idToken,
+                    accessToken: result.user.accessToken.tokenString
+                )
+                let authResult = try await Auth.auth().signIn(with: credential)
+                settings.userEmail = authResult.user.email ?? settings.userEmail
+                hasCompletedSignIn = true
+            } catch {
+                authErrorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func handleAppleSignIn(_ result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .failure(let error):
+            authErrorMessage = error.localizedDescription
+        case .success(let authorization):
+            guard
+                let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                let nonce = currentNonce,
+                let tokenData = credential.identityToken,
+                let token = String(data: tokenData, encoding: .utf8)
+            else {
+                authErrorMessage = "Apple sign-in response is invalid."
+                return
+            }
+
+            let firebaseCredential = OAuthProvider.credential(
+                providerID: .apple,
+                idToken: token,
+                rawNonce: nonce
+            )
+
+            Task { @MainActor in
+                do {
+                    let authResult = try await Auth.auth().signIn(with: firebaseCredential)
+                    if let email = credential.email ?? authResult.user.email {
+                        settings.userEmail = email
+                    }
+                    hasCompletedSignIn = true
+                } catch {
+                    authErrorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func topViewController() -> UIViewController? {
+        guard
+            let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+            let root = scene.windows.first(where: { $0.isKeyWindow })?.rootViewController
+        else { return nil }
+        return deepestPresentedController(from: root)
+    }
+
+    private func deepestPresentedController(from root: UIViewController) -> UIViewController {
+        var current = root
+        while let presented = current.presentedViewController {
+            current = presented
+        }
+        return current
+    }
+
+    private func sha256(_ input: String) -> String {
+        let data = Data(input.utf8)
+        let digest = SHA256.hash(data: data)
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func randomNonceString(length: Int = 32) -> String {
+        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        var result = ""
+        result.reserveCapacity(length)
+        for _ in 0..<length {
+            var random: UInt8 = 0
+            let status = SecRandomCopyBytes(kSecRandomDefault, 1, &random)
+            if status == errSecSuccess {
+                result.append(charset[Int(random) % charset.count])
+            } else {
+                result.append("0")
+            }
+        }
+        return result
     }
 }
 
