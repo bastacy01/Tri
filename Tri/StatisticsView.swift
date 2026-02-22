@@ -326,7 +326,7 @@ struct StatisticsView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.65))
             Text("\(count)")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(Color.black)
         }
     }
