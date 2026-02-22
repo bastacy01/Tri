@@ -145,19 +145,25 @@ struct OnboardingFlowView: View {
             Button {
                 signInWithGoogle()
             } label: {
-                HStack {
-                    Image(systemName: "globe")
-                    Text("Sign up with Google")
-                        .font(.system(size: 16, weight: .semibold))
+                HStack(spacing: 8) {
+                    Image("googleIcon")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 13, height: 13)
+                        .offset(x: 10)
+                    Text("Sign in with Google")
+                        .font(.system(size: 19, weight: .medium))
+                        .offset(x: 7)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(Color.black)
                 )
             }
             .foregroundStyle(Color.white)
+            .frame(height: 48)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .padding(.horizontal, 40)
             .disabled(FirebaseApp.app()?.options.clientID == nil)
 
@@ -188,10 +194,10 @@ struct OnboardingFlowView: View {
                         .padding(.vertical, 11)
                         .background(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(healthChoice == true ? Color.black : Color.white)
-                                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+                                .fill(Color.white)
+                                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
                         )
-                        .foregroundStyle(healthChoice == true ? Color.white : Color.black)
+                        .foregroundStyle(Color.black)
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 40)
@@ -220,7 +226,7 @@ struct OnboardingFlowView: View {
     }
 
     private var favoriteStep: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 26) {
             Spacer()
             VStack(spacing: 4) {
                 Text("Pick a favorite")
@@ -260,7 +266,7 @@ struct OnboardingFlowView: View {
     }
 
     private var caloriesGoalStep: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 26) {
             Spacer()
             VStack(spacing: 4) {
                 Text("Daily burn goal")
@@ -286,7 +292,7 @@ struct OnboardingFlowView: View {
     }
 
     private var weeklyGoalsStep: some View {
-        VStack(spacing: 22) {
+        VStack(spacing: 24) {
             Spacer()
             VStack(spacing: 4) {
                 Text("Weekly distance goals")
@@ -303,7 +309,7 @@ struct OnboardingFlowView: View {
                 GoalStepper(label: "Bike (mi)", value: $bikeGoal, range: 1...300, step: 1)
                 GoalStepper(label: "Run (mi)", value: $runGoal, range: 1...100, step: 1)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 40)
 
             Spacer()
         }
