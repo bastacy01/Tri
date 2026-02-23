@@ -10,8 +10,8 @@ import SwiftUI
 struct ProfileView: View {
     @EnvironmentObject private var settings: UserSettings
     @EnvironmentObject private var store: WorkoutStore
-    @State private var showingSyncAlert = false
     @State private var showSettingsSheet = false
+    @State private var showHealthKitErrorAlert = false
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -33,8 +33,8 @@ struct ProfileView: View {
 
                 goalsSection
                 streakSection
-                    .padding(.top, 8)
-                logoutSection
+//                    .padding(.top, 8)
+                healthKitSection
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 120)
@@ -45,6 +45,11 @@ struct ProfileView: View {
 //                .presentationDetents([.height(320)])
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
+        }
+        .alert("Health Access Required", isPresented: $showHealthKitErrorAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Tri couldn't connect to Apple Health. Please allow Health access in Settings to sync Apple Watch workouts.")
         }
     }
 
@@ -94,25 +99,26 @@ struct ProfileView: View {
         }
     }
 
-    private var logoutSection: some View {
-        Button {
-            // Placeholder for sign-out logic.
-        } label: {
-            HStack {
-                Image(systemName: "rectangle.portrait.and.arrow.right")
-                Text("Log Out")
-                    .font(.system(size: 16, weight: .semibold))
+    private var healthKitSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("HealthKit")
+                .font(.system(size: 20, weight: .bold, design: .serif))
+
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle("Sync Apple Watch Workouts", isOn: healthKitToggleBinding)
+                    .tint(.black)
+
+                Text("When enabled, Tri will add workouts done on Apple Watch to app.")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.55))
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
+            .padding(16)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.white)
-                    .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
-                )
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(.white)
+                    .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 4)
+            )
         }
-        .foregroundStyle(Color.black)
-        .padding(.top, 60)
     }
 
     private var settingsSheet: some View {
@@ -176,6 +182,24 @@ struct ProfileView: View {
             Spacer()
 
             Button {
+                // Placeholder for sign-out logic.
+            } label: {
+                HStack {
+                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                    Text("Log Out")
+                        .font(.system(size: 16, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.white)
+                        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+                )
+            }
+            .foregroundStyle(Color.black)
+
+            Button {
                 // Placeholder for cancel subscription.
             } label: {
                 HStack {
@@ -200,6 +224,19 @@ struct ProfileView: View {
 
     private var subscriptionPlan: String {
         "Tri Pro ($4.99/month)"
+    }
+
+    private var healthKitToggleBinding: Binding<Bool> {
+        Binding(
+            get: { settings.healthKitSyncEnabled },
+            set: { newValue in
+                if newValue {
+                    enableHealthKitSync()
+                } else {
+                    settings.healthKitSyncEnabled = false
+                }
+            }
+        )
     }
 
     private func goalRow(
@@ -255,6 +292,7 @@ struct ProfileView: View {
         Task { @MainActor in
             do {
                 try await HealthKitManager.shared.requestAuthorization()
+                settings.healthKitSyncEnabled = true
                 let startDate = settings.healthKitStartDate ?? Date()
                 settings.healthKitStartDate = startDate
                 settings.healthKitLastFetchDate = startDate
@@ -266,6 +304,7 @@ struct ProfileView: View {
                 }
             } catch {
                 settings.healthKitSyncEnabled = false
+                showHealthKitErrorAlert = true
             }
         }
 #else
