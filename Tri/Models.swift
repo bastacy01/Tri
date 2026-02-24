@@ -36,13 +36,34 @@ enum WorkoutType: String, CaseIterable, Identifiable {
 }
 
 struct Workout: Identifiable {
-    let id = UUID()
+    let id: UUID
     let type: WorkoutType
     let distance: Double
     let duration: TimeInterval
     let calories: Double
     let date: Date
     let source: WorkoutSource
+    let sourceIdentifier: String?
+
+    init(
+        id: UUID = UUID(),
+        type: WorkoutType,
+        distance: Double,
+        duration: TimeInterval,
+        calories: Double,
+        date: Date,
+        source: WorkoutSource,
+        sourceIdentifier: String? = nil
+    ) {
+        self.id = id
+        self.type = type
+        self.distance = distance
+        self.duration = duration
+        self.calories = calories
+        self.date = date
+        self.source = source
+        self.sourceIdentifier = sourceIdentifier
+    }
 
     var distanceString: String {
         let value = distance >= 100 ? String(format: "%.0f", distance) : String(format: "%.1f", distance)

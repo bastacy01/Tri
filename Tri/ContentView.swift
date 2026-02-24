@@ -7,8 +7,11 @@
 
 import SwiftUI
 import FirebaseAuth
+import SwiftData
 
 struct ContentView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var store = WorkoutStore()
     @StateObject private var settings = UserSettings()
     @State private var selectedTab: Tab = .home
@@ -38,15 +41,26 @@ struct ContentView: View {
         .environmentObject(store)
         .environmentObject(settings)
         .onAppear {
-            store.loadMockData()
+            if !store.isRepositoryConfigured {
+                store.configureRepository(SwiftDataWorkoutRepository(context: modelContext))
+            }
+            settings.configureRepository(context: modelContext)
             startHealthKitIfEnabled()
             if authStateHandle == nil {
                 authStateHandle = Auth.auth().addStateDidChangeListener { _, user in
                     isAuthenticated = (user != nil)
+                    selectedTab = .home
                     if let email = user?.email {
                         settings.userEmail = email
                     }
+                    settings.reloadFromStorage(ownerUID: user?.uid)
+                    store.reloadFromStorage()
                 }
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                selectedTab = .home
             }
         }
     }
@@ -80,17 +94,35 @@ struct ContentView: View {
     private func startHealthKitIfEnabled() {
 #if canImport(HealthKit)
         guard settings.healthKitSyncEnabled else { return }
+        let ownerUID = Auth.auth().currentUser?.uid ?? "local"
+        let syncRepository = SyncStateRepository(context: modelContext)
         Task { @MainActor in
             do {
                 try await HealthKitManager.shared.requestAuthorization()
-                let startDate = settings.healthKitStartDate ?? Date()
-                settings.healthKitStartDate = startDate
-                settings.healthKitLastFetchDate = startDate
-                HealthKitManager.shared.startObservingNewWorkouts(startDateProvider: {
-                    settings.healthKitLastFetchDate ?? startDate
-                }) { workouts, lastFetch in
-                    store.mergeHealthKitWorkouts(workouts)
-                    settings.healthKitLastFetchDate = lastFetch
+                var syncState = try syncRepository.load(ownerUID: ownerUID)
+                if syncState.startDate == nil {
+                    syncState.startDate = Date()
+                }
+
+                let (initialWorkouts, deletedInitial, initialAnchor) = await HealthKitManager.shared.fetchNewWorkouts(
+                    anchorData: syncState.anchorData
+                )
+                if !initialWorkouts.isEmpty {
+                    store.applyHealthKitChanges(added: initialWorkouts, deletedSourceIdentifiers: deletedInitial)
+                }
+                syncState.anchorData = initialAnchor
+                syncState.lastFetchDate = Date()
+                try syncRepository.save(ownerUID: ownerUID, state: syncState)
+
+                HealthKitManager.shared.startObservingNewWorkouts(anchorDataProvider: {
+                    (try? syncRepository.load(ownerUID: ownerUID).anchorData) ?? nil
+                }) { workouts, deletedIdentifiers, anchorData, lastFetch in
+                    store.applyHealthKitChanges(added: workouts, deletedSourceIdentifiers: deletedIdentifiers)
+                    var updatedState = (try? syncRepository.load(ownerUID: ownerUID)) ?? HealthKitSyncState()
+                    updatedState.anchorData = anchorData
+                    updatedState.startDate = updatedState.startDate ?? Date()
+                    updatedState.lastFetchDate = lastFetch
+                    try? syncRepository.save(ownerUID: ownerUID, state: updatedState)
                 }
             } catch {
                 settings.healthKitSyncEnabled = false

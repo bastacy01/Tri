@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FirebaseCore
+import SwiftData
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(
@@ -26,5 +27,6 @@ struct TriApp: App {
         WindowGroup {
             ContentView()
         }
+        .modelContainer(for: [WorkoutEntity.self, UserProfileEntity.self, SyncStateEntity.self])
     }
 }

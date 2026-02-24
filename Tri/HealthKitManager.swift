@@ -22,8 +22,8 @@ final class HealthKitManager {
     }
 
     func startObservingNewWorkouts(
-        startDateProvider: @escaping () -> Date,
-        onUpdate: @escaping ([Workout], Date) -> Void
+        anchorDataProvider: @escaping () -> Data?,
+        onUpdate: @escaping ([Workout], [String], Data?, Date) -> Void
     ) {
         let workoutType = HKObjectType.workoutType()
         let query = HKObserverQuery(sampleType: workoutType, predicate: nil) { [weak self] _, completion, _ in
@@ -33,20 +33,25 @@ final class HealthKitManager {
                     return
                 }
                 let now = Date()
-                let workouts = await self.fetchWorkouts(since: startDateProvider())
-                onUpdate(workouts, now)
+                let (workouts, deletedIdentifiers, anchorData) = await self.fetchNewWorkouts(anchorData: anchorDataProvider())
+                onUpdate(workouts, deletedIdentifiers, anchorData, now)
                 completion()
             }
         }
         healthStore.execute(query)
+        healthStore.enableBackgroundDelivery(for: workoutType, frequency: .immediate) { _, _ in }
     }
 
-    func fetchWorkouts(since startDate: Date) async -> [Workout] {
+    func fetchNewWorkouts(anchorData: Data?) async -> ([Workout], [String], Data?) {
         await withCheckedContinuation { continuation in
             let workoutType = HKObjectType.workoutType()
-            let predicate = HKQuery.predicateForSamples(withStart: startDate, end: nil)
-            let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
-            let query = HKSampleQuery(sampleType: workoutType, predicate: predicate, limit: 50, sortDescriptors: [sort]) { _, samples, _ in
+            let anchor = self.deserializeAnchor(from: anchorData)
+            let query = HKAnchoredObjectQuery(
+                type: workoutType,
+                predicate: nil,
+                anchor: anchor,
+                limit: HKObjectQueryNoLimit
+            ) { _, samples, deletedObjects, newAnchor, _ in
                 let workouts: [Workout] = (samples as? [HKWorkout])?.compactMap { workout in
                     guard let type = WorkoutTypeMapper.map(activityType: workout.workoutActivityType) else {
                         return nil
@@ -58,13 +63,25 @@ final class HealthKitManager {
                         duration: workout.duration,
                         calories: workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()) ?? 0,
                         date: workout.endDate,
-                        source: .healthKit
+                        source: .healthKit,
+                        sourceIdentifier: workout.uuid.uuidString
                     )
                 } ?? []
-                continuation.resume(returning: workouts)
+                let deletedIdentifiers = deletedObjects?.map { $0.uuid.uuidString } ?? []
+                continuation.resume(returning: (workouts, deletedIdentifiers, self.serializeAnchor(newAnchor)))
             }
-            healthStore.execute(query)
+            self.healthStore.execute(query)
         }
+    }
+
+    private func serializeAnchor(_ anchor: HKQueryAnchor?) -> Data? {
+        guard let anchor else { return nil }
+        return try? NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true)
+    }
+
+    private func deserializeAnchor(from data: Data?) -> HKQueryAnchor? {
+        guard let data, !data.isEmpty else { return nil }
+        return try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: data)
     }
 }
 
