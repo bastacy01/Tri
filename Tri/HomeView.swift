@@ -13,6 +13,8 @@ struct HomeView: View {
     @State private var showStreaks = false
     @State private var showGoalSheet: WorkoutType?
     @State private var selectedWorkout: Workout?
+    @State private var workoutPendingDeletion: Workout?
+    @State private var showDeleteWorkoutConfirm = false
 
     private let calendar = Calendar.current
     private let fixedHeaderInset: CGFloat = 82
@@ -55,11 +57,27 @@ struct HomeView: View {
         }
         .sheet(item: $selectedWorkout) { workout in
             WorkoutDetailSheet(workout: workout) {
-                store.deleteWorkout(workout)
                 selectedWorkout = nil
+                workoutPendingDeletion = workout
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    showDeleteWorkoutConfirm = true
+                }
             }
             .presentationDetents([.height(318)])
             .presentationDragIndicator(.visible)
+        }
+        .alert("Delete Workout", isPresented: $showDeleteWorkoutConfirm) {
+            Button("Back", role: .cancel) {
+                workoutPendingDeletion = nil
+            }
+            Button("Delete", role: .destructive) {
+                if let workoutPendingDeletion {
+                    store.deleteWorkout(workoutPendingDeletion)
+                }
+                workoutPendingDeletion = nil
+            }
+        } message: {
+            Text("Are you sure you want to delete this workout?")
         }
     }
 
@@ -182,7 +200,21 @@ struct HomeView: View {
             Text("Recent Workouts")
                 .font(.system(size: 20, weight: .bold, design: .serif))
 
-            ForEach(store.workouts.prefix(3)) { workout in
+            recentWorkoutsContent
+        }
+        .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private var recentWorkoutsContent: some View {
+        if recentWorkoutsCurrentWeek.isEmpty {
+            Text("No workouts yet")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Color.black.opacity(0.5))
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, 12)
+        } else {
+            ForEach(recentWorkoutsCurrentWeek) { workout in
                 Button {
                     selectedWorkout = workout
                 } label: {
@@ -197,10 +229,16 @@ struct HomeView: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .padding(.vertical, 1)
             }
-            .padding(.vertical, 1)
         }
-        .padding(.vertical, 2)
+    }
+
+    private var recentWorkoutsCurrentWeek: [Workout] {
+        guard let week = calendar.dateInterval(of: .weekOfYear, for: Date()) else { return [] }
+        return store.workouts
+            .filter { $0.date >= week.start && $0.date < week.end }
+            .sorted { $0.date > $1.date }
     }
 
     private var weekDayRings: [DayRing] {
