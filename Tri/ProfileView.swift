@@ -6,12 +6,17 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 struct ProfileView: View {
     @EnvironmentObject private var settings: UserSettings
     @EnvironmentObject private var store: WorkoutStore
     @State private var showSettingsSheet = false
     @State private var showHealthKitErrorAlert = false
+    @State private var showLogoutConfirm = false
+    @State private var showDeleteAccountConfirm = false
+    @State private var showDeleteAccountErrorAlert = false
+    @State private var deleteAccountErrorMessage = "Unable to delete your account right now."
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -50,6 +55,27 @@ struct ProfileView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text("Tri couldn't connect to Apple Health. Please allow Health access in Settings to sync Apple Watch workouts.")
+        }
+        .alert("Log Out?", isPresented: $showLogoutConfirm) {
+            Button("Back", role: .cancel) {}
+            Button("Log Out", role: .destructive) {
+                signOut()
+            }
+        } message: {
+            Text("Are you sure you want to log out of your Tri account?")
+        }
+        .alert("Delete Account?", isPresented: $showDeleteAccountConfirm) {
+            Button("Back", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                deleteAccount()
+            }
+        } message: {
+            Text("Are you sure you want to delete your Tri account? This action is permanent and all user data will be erased.")
+        }
+        .alert("Delete Account Failed", isPresented: $showDeleteAccountErrorAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(deleteAccountErrorMessage)
         }
     }
 
@@ -182,7 +208,10 @@ struct ProfileView: View {
             Spacer()
 
             Button {
-                // Placeholder for sign-out logic.
+                showSettingsSheet = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    showLogoutConfirm = true
+                }
             } label: {
                 HStack {
                     Image(systemName: "rectangle.portrait.and.arrow.right")
@@ -205,6 +234,27 @@ struct ProfileView: View {
                 HStack {
                     Image(systemName: "xmark.circle")
                     Text("Cancel Subscription")
+                        .font(.system(size: 16, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.white)
+                        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+                )
+            }
+            .foregroundStyle(Color.red)
+
+            Button {
+                showSettingsSheet = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    showDeleteAccountConfirm = true
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "trash")
+                    Text("Delete Account")
                         .font(.system(size: 16, weight: .semibold))
                 }
                 .frame(maxWidth: .infinity)
@@ -310,5 +360,50 @@ struct ProfileView: View {
 #else
         settings.healthKitSyncEnabled = false
 #endif
+    }
+
+    private func signOut() {
+        do {
+            try Auth.auth().signOut()
+            showSettingsSheet = false
+        } catch {
+            // Keep user in current session if sign-out fails.
+        }
+    }
+
+    private func deleteAccount() {
+        guard let user = Auth.auth().currentUser else {
+            finalizeAccountRemovalLocally()
+            return
+        }
+
+        Task { @MainActor in
+            do {
+                try await user.delete()
+                finalizeAccountRemovalLocally()
+            } catch {
+                let nsError = error as NSError
+                if nsError.code == AuthErrorCode.requiresRecentLogin.rawValue {
+                    deleteAccountErrorMessage = "For security, please log out and sign in again before deleting your account."
+                } else {
+                    deleteAccountErrorMessage = error.localizedDescription
+                }
+                showDeleteAccountErrorAlert = true
+            }
+        }
+    }
+
+    private func finalizeAccountRemovalLocally() {
+        do {
+            try Auth.auth().signOut()
+        } catch {
+            // Ignore sign-out errors here; deleted users are usually signed out automatically.
+        }
+        store.clearAll()
+        settings.hasOnboarded = false
+        settings.userEmail = "user@triapp.com"
+        settings.healthKitSyncEnabled = false
+        settings.healthKitStartDate = nil
+        settings.healthKitLastFetchDate = nil
     }
 }
