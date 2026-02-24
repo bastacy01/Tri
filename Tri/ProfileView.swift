@@ -7,8 +7,10 @@
 
 import SwiftUI
 import FirebaseAuth
+import SwiftData
 
 struct ProfileView: View {
+    @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var settings: UserSettings
     @EnvironmentObject private var store: WorkoutStore
     @State private var showSettingsSheet = false
@@ -339,18 +341,35 @@ struct ProfileView: View {
 
     private func enableHealthKitSync() {
 #if canImport(HealthKit)
+        let ownerUID = Auth.auth().currentUser?.uid ?? "local"
+        let syncRepository = SyncStateRepository(context: modelContext)
         Task { @MainActor in
             do {
                 try await HealthKitManager.shared.requestAuthorization()
                 settings.healthKitSyncEnabled = true
-                let startDate = settings.healthKitStartDate ?? Date()
-                settings.healthKitStartDate = startDate
-                settings.healthKitLastFetchDate = startDate
-                HealthKitManager.shared.startObservingNewWorkouts(startDateProvider: {
-                    settings.healthKitLastFetchDate ?? startDate
-                }) { workouts, lastFetch in
-                    store.mergeHealthKitWorkouts(workouts)
-                    settings.healthKitLastFetchDate = lastFetch
+                var syncState = try syncRepository.load(ownerUID: ownerUID)
+                if syncState.startDate == nil {
+                    syncState.startDate = Date()
+                }
+                let (initialWorkouts, deletedInitial, initialAnchor) = await HealthKitManager.shared.fetchNewWorkouts(
+                    anchorData: syncState.anchorData
+                )
+                if !initialWorkouts.isEmpty {
+                    store.applyHealthKitChanges(added: initialWorkouts, deletedSourceIdentifiers: deletedInitial)
+                }
+                syncState.anchorData = initialAnchor
+                syncState.lastFetchDate = Date()
+                try syncRepository.save(ownerUID: ownerUID, state: syncState)
+
+                HealthKitManager.shared.startObservingNewWorkouts(anchorDataProvider: {
+                    (try? syncRepository.load(ownerUID: ownerUID).anchorData) ?? nil
+                }) { workouts, deletedIdentifiers, anchorData, lastFetch in
+                    store.applyHealthKitChanges(added: workouts, deletedSourceIdentifiers: deletedIdentifiers)
+                    var updatedState = (try? syncRepository.load(ownerUID: ownerUID)) ?? HealthKitSyncState()
+                    updatedState.anchorData = anchorData
+                    updatedState.startDate = updatedState.startDate ?? Date()
+                    updatedState.lastFetchDate = lastFetch
+                    try? syncRepository.save(ownerUID: ownerUID, state: updatedState)
                 }
             } catch {
                 settings.healthKitSyncEnabled = false
@@ -373,14 +392,15 @@ struct ProfileView: View {
 
     private func deleteAccount() {
         guard let user = Auth.auth().currentUser else {
-            finalizeAccountRemovalLocally()
+            finalizeAccountRemovalLocally(ownerUID: "local")
             return
         }
+        let ownerUID = user.uid
 
         Task { @MainActor in
             do {
                 try await user.delete()
-                finalizeAccountRemovalLocally()
+                finalizeAccountRemovalLocally(ownerUID: ownerUID)
             } catch {
                 let nsError = error as NSError
                 if nsError.code == AuthErrorCode.requiresRecentLogin.rawValue {
@@ -393,7 +413,7 @@ struct ProfileView: View {
         }
     }
 
-    private func finalizeAccountRemovalLocally() {
+    private func finalizeAccountRemovalLocally(ownerUID: String) {
         do {
             try Auth.auth().signOut()
         } catch {
@@ -403,7 +423,7 @@ struct ProfileView: View {
         settings.hasOnboarded = false
         settings.userEmail = "user@triapp.com"
         settings.healthKitSyncEnabled = false
-        settings.healthKitStartDate = nil
-        settings.healthKitLastFetchDate = nil
+        let syncRepository = SyncStateRepository(context: modelContext)
+        try? syncRepository.clear(ownerUID: ownerUID)
     }
 }
