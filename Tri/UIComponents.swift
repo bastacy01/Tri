@@ -59,7 +59,7 @@ struct LiquidTabBar: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .offset(y: -68)
+                .offset(x: -6, y: -68)
                 .transition(.opacity)
             }
         }
@@ -251,6 +251,7 @@ struct StreaksSheet: View {
 }
 
 struct AddWorkoutSheet: View {
+    @Environment(\.dismiss) private var dismiss
     @State private var selectedType: WorkoutType = .swim
     @State private var distance = ""
     @State private var duration = ""
@@ -270,14 +271,18 @@ struct AddWorkoutSheet: View {
             .pickerStyle(.segmented)
 
             VStack(spacing: 12) {
-                TextField("Distance (e.g., 1500 yd)", text: $distance)
-                TextField("Duration (e.g., 0:45:00)", text: $duration)
-                TextField("Calories (e.g., 300)", text: $calories)
+                TextField("Distance (\(selectedType.unitLabel))", text: $distance)
+                    .keyboardType(.decimalPad)
+                TextField("Duration (minutes)", text: $duration)
+                    .keyboardType(.numberPad)
+                TextField("Calories (cal)", text: $calories)
+                    .keyboardType(.numberPad)
             }
             .textFieldStyle(.roundedBorder)
 
             Button {
                 onSave(parseWorkout())
+                dismiss()
             } label: {
                 Text("Save Workout")
                     .font(.system(size: 16, weight: .semibold))
@@ -285,11 +290,12 @@ struct AddWorkoutSheet: View {
                     .padding(.vertical, 12)
                     .background(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color.black)
+                            .fill(canSave ? Color.black : Color.gray.opacity(0.45))
                     )
                     .foregroundStyle(.white)
             }
             .buttonStyle(.plain)
+            .disabled(!canSave)
 
             Spacer()
         }
@@ -318,7 +324,16 @@ struct AddWorkoutSheet: View {
         if parts.count == 2 {
             return parts[0] * 60 + parts[1]
         }
-        return parts.first ?? 0
+        if let minutes = parts.first {
+            return minutes * 60
+        }
+        return 0
+    }
+
+    private var canSave: Bool {
+        !distance.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !duration.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !calories.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
 
