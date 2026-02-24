@@ -35,6 +35,10 @@ final class WorkoutStore: ObservableObject {
         workouts.removeAll { $0.id == workout.id }
     }
 
+    func clearAll() {
+        workouts.removeAll()
+    }
+
     func workouts(on date: Date, calendar: Calendar = .current) -> [Workout] {
         workouts.filter { calendar.isDate($0.date, inSameDayAs: date) }
     }
