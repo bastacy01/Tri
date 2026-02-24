@@ -6,12 +6,15 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 struct ContentView: View {
     @StateObject private var store = WorkoutStore()
     @StateObject private var settings = UserSettings()
     @State private var selectedTab: Tab = .home
     @State private var showAddWorkout = false
+    @State private var isAuthenticated = Auth.auth().currentUser != nil
+    @State private var authStateHandle: AuthStateDidChangeListenerHandle?
 
     var body: some View {
         ZStack {
@@ -26,7 +29,7 @@ struct ContentView: View {
             )
             .ignoresSafeArea()
 
-            if settings.hasOnboarded {
+            if settings.hasOnboarded && isAuthenticated {
                 mainContent
             } else {
                 OnboardingFlowView()
@@ -37,6 +40,14 @@ struct ContentView: View {
         .onAppear {
             store.loadMockData()
             startHealthKitIfEnabled()
+            if authStateHandle == nil {
+                authStateHandle = Auth.auth().addStateDidChangeListener { _, user in
+                    isAuthenticated = (user != nil)
+                    if let email = user?.email {
+                        settings.userEmail = email
+                    }
+                }
+            }
         }
     }
 
@@ -60,8 +71,8 @@ struct ContentView: View {
             AddWorkoutSheet { workout in
                 store.addManualWorkout(workout)
             }
-//            .presentationDetents([.large])
-            .presentationDetents([.height(505)])
+            .presentationDetents([.large])
+//            .presentationDetents([.height(505)])
             .presentationDragIndicator(.visible)
         }
     }
