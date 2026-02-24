@@ -31,47 +31,54 @@ struct OnboardingFlowView: View {
     @State private var showSkipConfirmation = false
     @State private var authErrorMessage: String?
     @State private var currentNonce: String?
+    private var isReauthOnly: Bool { settings.hasOnboarded }
 
     var body: some View {
         VStack {
             TabView(selection: $step) {
                 signInStep
                     .tag(0)
-                healthConnectStep
-                    .tag(1)
-                favoriteStep
-                    .tag(2)
-                caloriesGoalStep
-                    .tag(3)
-                weeklyGoalsStep
-                    .tag(4)
+                if !isReauthOnly {
+                    healthConnectStep
+                        .tag(1)
+                    favoriteStep
+                        .tag(2)
+                    caloriesGoalStep
+                        .tag(3)
+                    weeklyGoalsStep
+                        .tag(4)
+                }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
 
-            HStack(spacing: 12) {
-                ForEach(0..<5, id: \.self) { index in
-                    Capsule()
-                        .fill(index == step ? Color.black : Color.black.opacity(0.15))
-                        .frame(width: index == step ? 24 : 8, height: 6)
+            if !isReauthOnly {
+                HStack(spacing: 12) {
+                    ForEach(0..<5, id: \.self) { index in
+                        Capsule()
+                            .fill(index == step ? Color.black : Color.black.opacity(0.15))
+                            .frame(width: index == step ? 24 : 8, height: 6)
+                    }
                 }
+                .padding(.vertical, 10)
             }
-            .padding(.vertical, 10)
 
-            Button {
-                advance()
-            } label: {
-                Text(step == 4 ? "Finish" : "Continue")
-                    .font(.system(size: 16, weight: .semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(canContinueOnCurrentStep ? Color.black : Color.gray.opacity(0.45))
-                    )
-                    .foregroundStyle(.white)
+            if !isReauthOnly {
+                Button {
+                    advance()
+                } label: {
+                    Text(step == 4 ? "Finish" : "Continue")
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(canContinueOnCurrentStep ? Color.black : Color.gray.opacity(0.45))
+                        )
+                        .foregroundStyle(.white)
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 24)
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 24)
         }
         .onAppear {
             dailyGoal = settings.dailyCaloriesGoal
@@ -86,6 +93,12 @@ struct OnboardingFlowView: View {
             minimumAllowedStep = 0
         }
         .onChange(of: step) { _, newValue in
+            if isReauthOnly {
+                if newValue != 0 {
+                    step = 0
+                }
+                return
+            }
             if newValue < minimumAllowedStep {
                 step = minimumAllowedStep
                 return
