@@ -8,6 +8,7 @@
 import SwiftUI
 import AuthenticationServices
 import CryptoKit
+import StoreKit
 import FirebaseAuth
 import FirebaseCore
 import GoogleSignIn
@@ -17,7 +18,9 @@ import UIKit
 #endif
 
 struct OnboardingFlowView: View {
+    @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var settings: UserSettings
+    @EnvironmentObject private var store: WorkoutStore
     @State private var step = 0
     @State private var maxUnlockedStep = 0
     @State private var minimumAllowedStep = 0
@@ -29,55 +32,67 @@ struct OnboardingFlowView: View {
     @State private var hasCompletedSignIn = false
     @State private var healthChoice: Bool?
     @State private var showSkipConfirmation = false
+    @State private var showDeleteAccountConfirm = false
+    @State private var showDeleteAccountErrorAlert = false
+    @State private var deleteAccountErrorMessage = "Unable to delete your account right now."
     @State private var authErrorMessage: String?
     @State private var currentNonce: String?
-    private var isReauthOnly: Bool { settings.hasOnboarded }
+    @State private var isCompactPaywall = false
+    private var isReauthOnly: Bool { settings.hasOnboarded && settings.hasActiveSubscription }
+    private var requiresPaywallAfterSignIn: Bool { settings.hasOnboarded && !settings.hasActiveSubscription }
+    private var showPaywallOnlyScreen: Bool { requiresPaywallAfterSignIn && hasCompletedSignIn }
 
     var body: some View {
         VStack {
-            TabView(selection: $step) {
-                signInStep
-                    .tag(0)
-                if !isReauthOnly {
-                    healthConnectStep
-                        .tag(1)
-                    favoriteStep
-                        .tag(2)
-                    caloriesGoalStep
-                        .tag(3)
-                    weeklyGoalsStep
-                        .tag(4)
-                }
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-
-            if !isReauthOnly {
-                HStack(spacing: 12) {
-                    ForEach(0..<5, id: \.self) { index in
-                        Capsule()
-                            .fill(index == step ? Color.black : Color.black.opacity(0.15))
-                            .frame(width: index == step ? 24 : 8, height: 6)
+            if showPaywallOnlyScreen {
+                paywallScreen
+            } else {
+                TabView(selection: $step) {
+                    signInStep
+                        .tag(0)
+                    if !isReauthOnly {
+                        healthConnectStep
+                            .tag(1)
+                        favoriteStep
+                            .tag(2)
+                        caloriesGoalStep
+                            .tag(3)
+                        weeklyGoalsStep
+                            .tag(4)
+                        paywallStep
+                            .tag(5)
                     }
                 }
-                .padding(.vertical, 10)
-            }
+                .tabViewStyle(.page(indexDisplayMode: .never))
 
-            if !isReauthOnly {
-                Button {
-                    advance()
-                } label: {
-                    Text(step == 4 ? "Finish" : "Continue")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(canContinueOnCurrentStep ? Color.black : Color.gray.opacity(0.45))
-                        )
-                        .foregroundStyle(.white)
+                if !isReauthOnly {
+                    HStack(spacing: 12) {
+                        ForEach(0..<6, id: \.self) { index in
+                            Capsule()
+                                .fill(index == step ? Color.black : Color.black.opacity(0.15))
+                                .frame(width: index == step ? 24 : 8, height: 6)
+                        }
+                    }
+                    .padding(.vertical, 10)
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 24)
+
+                if !isReauthOnly && step < 5 {
+                    Button {
+                        advance()
+                    } label: {
+                        Text("Continue")
+                            .font(.system(size: 16, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(canContinueOnCurrentStep ? Color.black : Color.gray.opacity(0.45))
+                            )
+                            .foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
+                }
             }
         }
         .onAppear {
@@ -93,6 +108,12 @@ struct OnboardingFlowView: View {
             minimumAllowedStep = 0
         }
         .onChange(of: step) { _, newValue in
+            if requiresPaywallAfterSignIn {
+                if newValue != 0 {
+                    step = 0
+                }
+                return
+            }
             if isReauthOnly {
                 if newValue != 0 {
                     step = 0
@@ -123,6 +144,19 @@ struct OnboardingFlowView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(authErrorMessage ?? "Please try again.")
+        }
+        .alert("Delete Account?", isPresented: $showDeleteAccountConfirm) {
+            Button("Back", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                deleteAccount()
+            }
+        } message: {
+            Text("Are you sure you want to delete your Tri account? This action is permanent and all user data will be erased.")
+        }
+        .alert("Delete Account Failed", isPresented: $showDeleteAccountErrorAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(deleteAccountErrorMessage)
         }
     }
 
@@ -328,6 +362,87 @@ struct OnboardingFlowView: View {
         }
     }
 
+    private var paywallStep: some View {
+        paywallScreen
+    }
+
+    private var paywallScreen: some View {
+        PaywallView(isCompact: isCompactPaywall, ids: Self.productIDs, points: Self.points) {
+            paywallHeaderView
+        } links: {
+            paywallLinksView
+        } loadingView: {
+            ProgressView()
+        }
+        .tint(Color.primary)
+        .interactiveDismissDisabled()
+        .onInAppPurchaseStart { product in
+            print("Purchasing \(product.displayName)")
+        }
+        .onInAppPurchaseCompletion { product, result in
+            handlePurchaseCompletion(productID: product.id, result: result)
+        }
+        .subscriptionStatusTask(for: Self.subscriptionGroupID) { _ in
+            // Add your App Store subscription group ID in `subscriptionGroupID`.
+        }
+    }
+
+    @ViewBuilder
+    private var paywallHeaderView: some View {
+        VStack(spacing: 15)  {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Tri")
+                    .font(.title.bold())
+
+                Text("Triathletes")
+                    .font(.caption.bold())
+                    .foregroundStyle(.background)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color.primary, in: .capsule)
+//                    .offset(x: 5)
+            }
+            .lineLimit(1)
+            .padding(.top, 10)
+            
+            ZStack {
+                RoundedRectangle(cornerRadius: 25, style: .continuous)
+                    .fill(Color.black)
+                    .frame(width: 100, height: 100)
+                Text("T.")
+                    .font(.system(size: 65, weight: .semibold, design: .serif))
+                    .foregroundStyle(.white)
+            }
+            .padding(.vertical, 25)
+//            Image(systemName: "flame.fill")
+//                .font(.system(size: 60))
+//                .foregroundStyle(.background)
+//                .frame(width: 100, height: 100)
+//                .background(Color.primary, in: .rect(cornerRadius: 25))
+//                .padding(.vertical, 25)
+        }
+    }
+
+    @ViewBuilder
+    private var paywallLinksView: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 5) {
+                Link("Terms of Service", destination: URL(string: "https://example.com/terms")!)
+
+                Text("&")
+
+                Link("Privacy Policy", destination: URL(string: "https://example.com/privacy-policy")!)
+                Text("&")
+                Button("Delete Account") {
+                    showDeleteAccountConfirm = true
+                }
+                .foregroundStyle(.red)
+            }
+            .font(.caption)
+            .foregroundStyle(.gray)
+        }
+    }
+
     private func advance() {
         if step < 4 {
             step += 1
@@ -337,12 +452,14 @@ struct OnboardingFlowView: View {
             }
             return
         }
+        guard step == 4 else { return }
         settings.favoriteWorkout = favorite
         settings.dailyCaloriesGoal = dailyGoal
         settings.weeklySwimGoal = swimGoal
         settings.weeklyBikeGoal = bikeGoal
         settings.weeklyRunGoal = runGoal
-        settings.hasOnboarded = true
+        step = 5
+        maxUnlockedStep = max(maxUnlockedStep, 5)
     }
 
     private var canContinueOnCurrentStep: Bool {
@@ -351,6 +468,8 @@ struct OnboardingFlowView: View {
             return hasCompletedSignIn
         case 1:
             return healthChoice != nil
+        case 5:
+            return false
         default:
             return true
         }
@@ -367,6 +486,74 @@ struct OnboardingFlowView: View {
             }
         }
 #endif
+    }
+
+    private func handlePurchaseCompletion(productID: String, result: Result<Product.PurchaseResult, Error>) {
+        switch result {
+        case .success(let purchaseResult):
+            switch purchaseResult {
+            case .success(let verification):
+                switch verification {
+                case .verified:
+                    unlockSubscribedUser(subscriptionProductID: productID)
+                case .unverified:
+                    break
+                }
+            case .pending, .userCancelled:
+                break
+            @unknown default:
+                break
+            }
+        case .failure:
+            break
+        }
+    }
+
+    private func unlockSubscribedUser(subscriptionProductID: String? = nil) {
+        settings.hasActiveSubscription = true
+        if let subscriptionProductID {
+            settings.subscriptionProductID = subscriptionProductID
+        }
+        settings.hasOnboarded = true
+    }
+
+    private func deleteAccount() {
+        guard let user = Auth.auth().currentUser else {
+            finalizeAccountRemovalLocally(ownerUID: "local")
+            return
+        }
+        let ownerUID = user.uid
+
+        Task { @MainActor in
+            do {
+                try await user.delete()
+                finalizeAccountRemovalLocally(ownerUID: ownerUID)
+            } catch {
+                let nsError = error as NSError
+                if nsError.code == AuthErrorCode.requiresRecentLogin.rawValue {
+                    deleteAccountErrorMessage = "For security, please sign in again before deleting your account."
+                } else {
+                    deleteAccountErrorMessage = error.localizedDescription
+                }
+                showDeleteAccountErrorAlert = true
+            }
+        }
+    }
+
+    private func finalizeAccountRemovalLocally(ownerUID: String) {
+        do {
+            try Auth.auth().signOut()
+        } catch {
+            // Ignore sign-out failures for deleted users.
+        }
+        store.clearAll()
+        settings.hasOnboarded = false
+        settings.hasActiveSubscription = false
+        settings.subscriptionProductID = nil
+        settings.userEmail = "user@triapp.com"
+        settings.healthKitSyncEnabled = false
+        let syncRepository = SyncStateRepository(context: modelContext)
+        try? syncRepository.clear(ownerUID: ownerUID)
     }
 
     private func signInWithGoogle() {
@@ -474,6 +661,22 @@ struct OnboardingFlowView: View {
         }
         return result
     }
+
+    private static let subscriptionGroupID = "DFAC819C"
+
+    /// Your IAP IDs
+    private static let productIDs: [String] = [
+        "pro_monthly",
+        "pro_yearly"
+    ]
+
+    /// Your IAP points
+    private static let points: [PaywallPoint] = [
+        .init(symbol: "figure.pool.swim", content: "Swim"),
+        .init(symbol: "figure.outdoor.cycle", content: "Bike"),
+        .init(symbol: "figure.run", content: "Run"),
+        .init(symbol: "chart.line.uptrend.xyaxis", content: "Track your progress")
+    ]
 }
 
 private struct GoalStepper: View {
