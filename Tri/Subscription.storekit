@@ -1,0 +1,104 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "58A93254",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_renewalBillingIssuesEnabled" : false,
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ],
+    "_timeRate" : 0
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "DFAC819C",
+      "localizations" : [
+
+      ],
+      "name" : "Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "F8E8894C",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Subscribe for a Month",
+              "displayName" : "Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "pro_monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Monthly",
+          "subscriptionGroupID" : "DFAC819C",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "44.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "0EBBD204",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Subscribe for a Year",
+              "displayName" : "Yearly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "pro_yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Yearly",
+          "subscriptionGroupID" : "DFAC819C",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}
