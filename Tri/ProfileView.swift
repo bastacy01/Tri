@@ -11,6 +11,7 @@ import SwiftData
 
 struct ProfileView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.openURL) private var openURL
     @EnvironmentObject private var settings: UserSettings
     @EnvironmentObject private var store: WorkoutStore
     @State private var showSettingsSheet = false
@@ -18,6 +19,7 @@ struct ProfileView: View {
     @State private var showLogoutConfirm = false
     @State private var showDeleteAccountConfirm = false
     @State private var showDeleteAccountErrorAlert = false
+    @State private var showCancelSubscriptionConfirm = false
     @State private var deleteAccountErrorMessage = "Unable to delete your account right now."
 
     var body: some View {
@@ -79,6 +81,14 @@ struct ProfileView: View {
         } message: {
             Text(deleteAccountErrorMessage)
         }
+        .alert("Manage Subscription", isPresented: $showCancelSubscriptionConfirm) {
+            Button("Back", role: .cancel) {}
+            Button("Open App Store") {
+                openManageSubscription()
+            }
+        } message: {
+            Text("Subscriptions are managed by Apple. You can cancel there, and Tri access continues until your current billing period ends.")
+        }
     }
 
     private var goalsSection: some View {
@@ -108,7 +118,7 @@ struct ProfileView: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 Text("Choose which goals count toward your weekly streak.")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold, design: .serif))
                     .foregroundStyle(Color.black.opacity(0.55))
 
                 Toggle("Swim goal", isOn: $settings.streakIncludeSwim)
@@ -231,7 +241,7 @@ struct ProfileView: View {
             .foregroundStyle(Color.black)
 
             Button {
-                // Placeholder for cancel subscription.
+                showCancelSubscriptionConfirm = true
             } label: {
                 HStack {
                     Image(systemName: "xmark.circle")
@@ -275,7 +285,14 @@ struct ProfileView: View {
     }
 
     private var subscriptionPlan: String {
-        "Tri Pro ($4.99/month)"
+        switch settings.subscriptionProductID {
+        case "pro_monthly":
+            return "Tri Monthly ($4.99/month)"
+        case "pro_yearly":
+            return "Tri Yearly ($44.99/year)"
+        default:
+            return settings.hasActiveSubscription ? "Tri Membership (Active)" : "Not Subscribed"
+        }
     }
 
     private var healthKitToggleBinding: Binding<Bool> {
@@ -388,6 +405,11 @@ struct ProfileView: View {
         } catch {
             // Keep user in current session if sign-out fails.
         }
+    }
+
+    private func openManageSubscription() {
+        guard let url = URL(string: "itms-apps://apps.apple.com/account/subscriptions") else { return }
+        openURL(url)
     }
 
     private func deleteAccount() {
