@@ -8,6 +8,7 @@
 import SwiftUI
 import FirebaseAuth
 import SwiftData
+import StoreKit
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
@@ -32,7 +33,7 @@ struct ContentView: View {
             )
             .ignoresSafeArea()
 
-            if settings.hasOnboarded && isAuthenticated {
+            if settings.hasOnboarded && settings.hasActiveSubscription && isAuthenticated {
                 mainContent
             } else {
                 OnboardingFlowView()
@@ -45,6 +46,7 @@ struct ContentView: View {
                 store.configureRepository(SwiftDataWorkoutRepository(context: modelContext))
             }
             settings.configureRepository(context: modelContext)
+            syncSubscriptionStateFromEntitlements()
             startHealthKitIfEnabled()
             if authStateHandle == nil {
                 authStateHandle = Auth.auth().addStateDidChangeListener { _, user in
@@ -54,6 +56,7 @@ struct ContentView: View {
                         settings.userEmail = email
                     }
                     settings.reloadFromStorage(ownerUID: user?.uid)
+                    syncSubscriptionStateFromEntitlements()
                     store.reloadFromStorage()
                 }
             }
@@ -61,6 +64,7 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 selectedTab = .home
+                syncSubscriptionStateFromEntitlements()
             }
         }
     }
@@ -129,6 +133,22 @@ struct ContentView: View {
             }
         }
 #endif
+    }
+
+    private func syncSubscriptionStateFromEntitlements() {
+        guard isAuthenticated else { return }
+        Task { @MainActor in
+            var activeProductID: String?
+            for await result in Transaction.currentEntitlements {
+                guard case .verified(let transaction) = result else { continue }
+                if transaction.productID == "pro_monthly" || transaction.productID == "pro_yearly" {
+                    activeProductID = transaction.productID
+                    break
+                }
+            }
+            settings.hasActiveSubscription = (activeProductID != nil)
+            settings.subscriptionProductID = activeProductID
+        }
     }
 }
 
