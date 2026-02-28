@@ -10,6 +10,8 @@ import SwiftData
 
 struct UserProfileState {
     var hasOnboarded: Bool
+    var hasActiveSubscription: Bool
+    var subscriptionProductID: String?
     var favoriteWorkoutRaw: String
     var dailyCaloriesGoal: Double
     var weeklySwimGoal: Double
@@ -34,6 +36,8 @@ final class UserProfileRepository {
         if let entity = try fetchEntity(ownerUID: ownerUID) {
             return UserProfileState(
                 hasOnboarded: entity.hasOnboarded,
+                hasActiveSubscription: entity.hasActiveSubscription,
+                subscriptionProductID: entity.subscriptionProductID,
                 favoriteWorkoutRaw: entity.favoriteWorkoutRaw,
                 dailyCaloriesGoal: entity.dailyCaloriesGoal,
                 weeklySwimGoal: entity.weeklySwimGoal,
@@ -49,6 +53,8 @@ final class UserProfileRepository {
 
         let entity = UserProfileEntity(ownerUID: ownerUID)
         entity.hasOnboarded = seed.hasOnboarded
+        entity.hasActiveSubscription = seed.hasActiveSubscription
+        entity.subscriptionProductID = seed.subscriptionProductID
         entity.favoriteWorkoutRaw = seed.favoriteWorkoutRaw
         entity.dailyCaloriesGoal = seed.dailyCaloriesGoal
         entity.weeklySwimGoal = seed.weeklySwimGoal
@@ -71,6 +77,8 @@ final class UserProfileRepository {
             return created
         }()
         entity.hasOnboarded = state.hasOnboarded
+        entity.hasActiveSubscription = state.hasActiveSubscription
+        entity.subscriptionProductID = state.subscriptionProductID
         entity.favoriteWorkoutRaw = state.favoriteWorkoutRaw
         entity.dailyCaloriesGoal = state.dailyCaloriesGoal
         entity.weeklySwimGoal = state.weeklySwimGoal
@@ -92,4 +100,3 @@ final class UserProfileRepository {
         return try context.fetch(descriptor).first
     }
 }
-

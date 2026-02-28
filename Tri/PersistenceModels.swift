@@ -61,6 +61,8 @@ final class UserProfileEntity {
     var streakIncludeBike: Bool
     var streakIncludeRun: Bool
     var healthKitSyncEnabled: Bool
+    var hasActiveSubscription: Bool
+    var subscriptionProductID: String?
     var userEmail: String
     var hasOnboarded: Bool
 
@@ -75,6 +77,8 @@ final class UserProfileEntity {
         self.streakIncludeBike = true
         self.streakIncludeRun = true
         self.healthKitSyncEnabled = false
+        self.hasActiveSubscription = false
+        self.subscriptionProductID = nil
         self.userEmail = "user@triapp.com"
         self.hasOnboarded = false
     }
@@ -91,4 +95,3 @@ final class SyncStateEntity {
         self.ownerUID = ownerUID
     }
 }
-

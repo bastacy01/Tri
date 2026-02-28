@@ -13,6 +13,8 @@ import FirebaseAuth
 @MainActor
 final class UserSettings: ObservableObject {
     @AppStorage("hasOnboarded") private var legacyHasOnboarded: Bool = false
+    @AppStorage("hasActiveSubscription") private var legacyHasActiveSubscription: Bool = false
+    @AppStorage("subscriptionProductID") private var legacySubscriptionProductID: String = ""
     @AppStorage("favoriteWorkoutRaw") private var legacyFavoriteWorkoutRaw: String = WorkoutType.swim.rawValue
     @AppStorage("dailyCaloriesGoal") private var legacyDailyCaloriesGoal: Double = 1000
     @AppStorage("weeklySwimGoal") private var legacyWeeklySwimGoal: Double = 1000
@@ -25,6 +27,8 @@ final class UserSettings: ObservableObject {
     @AppStorage("userEmail") private var legacyUserEmail: String = "user@triapp.com"
 
     @Published var hasOnboarded: Bool = false { didSet { persistProfileIfNeeded() } }
+    @Published var hasActiveSubscription: Bool = false { didSet { persistProfileIfNeeded() } }
+    @Published var subscriptionProductID: String? = nil { didSet { persistProfileIfNeeded() } }
     @Published var favoriteWorkoutRaw: String = WorkoutType.swim.rawValue { didSet { persistProfileIfNeeded() } }
     @Published var dailyCaloriesGoal: Double = 1000 { didSet { persistProfileIfNeeded() } }
     @Published var weeklySwimGoal: Double = 1000 { didSet { persistProfileIfNeeded() } }
@@ -73,6 +77,8 @@ final class UserSettings: ObservableObject {
     private var legacySeed: UserProfileState {
         UserProfileState(
             hasOnboarded: legacyHasOnboarded,
+            hasActiveSubscription: legacyHasActiveSubscription,
+            subscriptionProductID: legacySubscriptionProductID.isEmpty ? nil : legacySubscriptionProductID,
             favoriteWorkoutRaw: legacyFavoriteWorkoutRaw,
             dailyCaloriesGoal: legacyDailyCaloriesGoal,
             weeklySwimGoal: legacyWeeklySwimGoal,
@@ -89,6 +95,8 @@ final class UserSettings: ObservableObject {
     private var currentState: UserProfileState {
         UserProfileState(
             hasOnboarded: hasOnboarded,
+            hasActiveSubscription: hasActiveSubscription,
+            subscriptionProductID: subscriptionProductID,
             favoriteWorkoutRaw: favoriteWorkoutRaw,
             dailyCaloriesGoal: dailyCaloriesGoal,
             weeklySwimGoal: weeklySwimGoal,
@@ -105,6 +113,8 @@ final class UserSettings: ObservableObject {
     private func apply(_ state: UserProfileState) {
         isHydrating = true
         hasOnboarded = state.hasOnboarded
+        hasActiveSubscription = state.hasActiveSubscription
+        subscriptionProductID = state.subscriptionProductID
         favoriteWorkoutRaw = state.favoriteWorkoutRaw
         dailyCaloriesGoal = state.dailyCaloriesGoal
         weeklySwimGoal = state.weeklySwimGoal
@@ -132,6 +142,8 @@ final class UserSettings: ObservableObject {
 
     private func persistLegacySnapshot(from state: UserProfileState) {
         legacyHasOnboarded = state.hasOnboarded
+        legacyHasActiveSubscription = state.hasActiveSubscription
+        legacySubscriptionProductID = state.subscriptionProductID ?? ""
         legacyFavoriteWorkoutRaw = state.favoriteWorkoutRaw
         legacyDailyCaloriesGoal = state.dailyCaloriesGoal
         legacyWeeklySwimGoal = state.weeklySwimGoal
