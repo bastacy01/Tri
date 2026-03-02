@@ -55,7 +55,7 @@ final class UserSettings: ObservableObject {
 
     func reloadFromStorage(ownerUID: String? = nil) {
         guard let repository else { return }
-        let uid = ownerUID ?? Auth.auth().currentUser?.uid ?? "local"
+        let uid = normalizedOwnerUID(ownerUID ?? Auth.auth().currentUser?.uid)
         do {
             let loaded = try repository.load(ownerUID: uid, seed: legacySeed)
             apply(loaded)
@@ -130,7 +130,7 @@ final class UserSettings: ObservableObject {
 
     private func persistProfileIfNeeded() {
         guard !isHydrating, let repository else { return }
-        let uid = Auth.auth().currentUser?.uid ?? "local"
+        let uid = normalizedOwnerUID(Auth.auth().currentUser?.uid)
         let state = currentState
         do {
             try repository.save(ownerUID: uid, state: state)
@@ -154,5 +154,12 @@ final class UserSettings: ObservableObject {
         legacyStreakIncludeRun = state.streakIncludeRun
         legacyHealthKitSyncEnabled = state.healthKitSyncEnabled
         legacyUserEmail = state.userEmail
+    }
+
+    private func normalizedOwnerUID(_ uid: String?) -> String {
+        guard let uid else { return "local" }
+        let trimmed = uid.trimmingCharacters(in: .whitespacesAndNewlines)
+        let allowed = trimmed.filter { $0.isLetter || $0.isNumber || $0 == "_" || $0 == "-" }
+        return allowed.isEmpty ? "local" : allowed
     }
 }

@@ -7,12 +7,14 @@
 
 import SwiftUI
 import Combine
-import FirebaseAuth
 
 @MainActor
 final class WorkoutStore: ObservableObject {
     @Published private(set) var workouts: [Workout] = []
+    @Published var lastPersistenceError: String?
+    @Published var debugStatus: String = "Workout store idle."
     private var repository: WorkoutRepository?
+    private var activeOwnerUID: String = "local"
 
     var isRepositoryConfigured: Bool {
         repository != nil
@@ -20,15 +22,26 @@ final class WorkoutStore: ObservableObject {
 
     func configureRepository(_ repository: WorkoutRepository) {
         self.repository = repository
+        updateDebugStatus("Repository configured for owner '\(activeOwnerUID)'.")
+        reloadFromStorage()
+    }
+
+    func updateOwnerUID(_ uid: String?) {
+        let resolved = normalizeOwnerUID(uid)
+        guard resolved != activeOwnerUID else { return }
+        activeOwnerUID = resolved
+        updateDebugStatus("Switched owner to '\(activeOwnerUID)'. Reloading workouts.")
         reloadFromStorage()
     }
 
     func reloadFromStorage() {
         guard let repository else { return }
         do {
-            workouts = try repository.fetchVisibleWorkouts(ownerUID: ownerUID)
+            workouts = try repository.fetchVisibleWorkouts(ownerUID: activeOwnerUID)
+            updateDebugStatus("Reloaded \(workouts.count) workouts for owner '\(activeOwnerUID)'.")
         } catch {
             workouts = []
+            reportPersistenceError(operation: "Reload workouts", error: error)
         }
     }
 
@@ -45,15 +58,23 @@ final class WorkoutStore: ObservableObject {
     func addManualWorkout(_ workout: Workout) {
         if let repository {
             do {
-                try repository.addManualWorkout(workout, ownerUID: ownerUID)
-                workouts = try repository.fetchVisibleWorkouts(ownerUID: ownerUID)
+                updateDebugStatus("Saving manual workout \(workout.id.uuidString.prefix(8)) for owner '\(activeOwnerUID)'.")
+                try repository.addManualWorkout(workout, ownerUID: activeOwnerUID)
+                workouts = try repository.fetchVisibleWorkouts(ownerUID: activeOwnerUID)
+                if workouts.contains(where: { $0.id == workout.id }) {
+                    updateDebugStatus("Saved manual workout. Total workouts: \(workouts.count) for owner '\(activeOwnerUID)'.")
+                } else {
+                    let missingMessage = "Save manual workout completed but inserted workout was not returned for owner '\(activeOwnerUID)'. Total workouts: \(workouts.count)."
+                    lastPersistenceError = missingMessage
+                    updateDebugStatus(missingMessage)
+                }
             } catch {
-                // Keep UI responsive even if persistence fails.
-                workouts.insert(workout, at: 0)
+                reportPersistenceError(operation: "Save manual workout", error: error)
             }
             return
         }
         workouts.insert(workout, at: 0)
+        updateDebugStatus("Saved manual workout in memory only (repository not configured). Total workouts: \(workouts.count).")
     }
 
     func mergeHealthKitWorkouts(_ newWorkouts: [Workout]) {
@@ -73,11 +94,12 @@ final class WorkoutStore: ObservableObject {
                         date: $0.date
                     )
                 }
-                try repository.upsertHealthKitWorkouts(payloads, ownerUID: ownerUID)
+                try repository.upsertHealthKitWorkouts(payloads, ownerUID: activeOwnerUID)
                 for identifier in deletedSourceIdentifiers {
-                    try repository.hideHealthKitWorkout(sourceIdentifier: identifier, ownerUID: ownerUID)
+                    try repository.hideHealthKitWorkout(sourceIdentifier: identifier, ownerUID: activeOwnerUID)
                 }
-                workouts = try repository.fetchVisibleWorkouts(ownerUID: ownerUID)
+                workouts = try repository.fetchVisibleWorkouts(ownerUID: activeOwnerUID)
+                updateDebugStatus("Applied HealthKit updates. Total workouts: \(workouts.count) for owner '\(activeOwnerUID)'.")
             } catch {
                 let existingIDs = Set(workouts.map { $0.id })
                 let unique = newWorkouts.filter { !existingIDs.contains($0.id) }
@@ -88,6 +110,7 @@ final class WorkoutStore: ObservableObject {
                         return deletedSourceIdentifiers.contains(sourceIdentifier)
                     }
                 }
+                reportPersistenceError(operation: "Apply HealthKit updates", error: error)
             }
             return
         }
@@ -100,32 +123,47 @@ final class WorkoutStore: ObservableObject {
                 return deletedSourceIdentifiers.contains(sourceIdentifier)
             }
         }
+        updateDebugStatus("Applied HealthKit updates in memory only. Total workouts: \(workouts.count).")
     }
 
     func deleteWorkout(_ workout: Workout) {
         if let repository {
             do {
-                try repository.hideWorkout(id: workout.id, ownerUID: ownerUID)
-                workouts = try repository.fetchVisibleWorkouts(ownerUID: ownerUID)
+                try repository.hideWorkout(id: workout.id, ownerUID: activeOwnerUID)
+                workouts = try repository.fetchVisibleWorkouts(ownerUID: activeOwnerUID)
+                updateDebugStatus("Deleted workout. Total workouts: \(workouts.count) for owner '\(activeOwnerUID)'.")
             } catch {
                 workouts.removeAll { $0.id == workout.id }
+                reportPersistenceError(operation: "Delete workout", error: error)
             }
             return
         }
         workouts.removeAll { $0.id == workout.id }
+        updateDebugStatus("Deleted workout in memory only. Total workouts: \(workouts.count).")
     }
 
     func clearAll() {
         if let repository {
             do {
-                try repository.clearAll(ownerUID: ownerUID)
+                try repository.clearAll(ownerUID: activeOwnerUID)
                 workouts = []
+                updateDebugStatus("Cleared workouts for owner '\(activeOwnerUID)'.")
             } catch {
                 workouts.removeAll()
+                reportPersistenceError(operation: "Clear workouts", error: error)
             }
             return
         }
         workouts.removeAll()
+        updateDebugStatus("Cleared workouts in memory only.")
+    }
+
+    func clearPersistenceError() {
+        lastPersistenceError = nil
+    }
+
+    var currentOwnerUID: String {
+        activeOwnerUID
     }
 
     func workouts(on date: Date, calendar: Calendar = .current) -> [Workout] {
@@ -149,11 +187,26 @@ final class WorkoutStore: ObservableObject {
         return workouts.filter { $0.date >= start && $0.date <= date }
     }
 
-    private var ownerUID: String {
-        Auth.auth().currentUser?.uid ?? "local"
-    }
-
     private func healthKitFingerprint(for workout: Workout) -> String {
         "\(workout.type.rawValue)|\(workout.date.timeIntervalSince1970)|\(workout.distance)|\(workout.duration)"
+    }
+
+    private func normalizeOwnerUID(_ uid: String?) -> String {
+        guard let uid else { return "local" }
+        let trimmed = uid.trimmingCharacters(in: .whitespacesAndNewlines)
+        let allowed = trimmed.filter { $0.isLetter || $0.isNumber || $0 == "_" || $0 == "-" }
+        return allowed.isEmpty ? "local" : allowed
+    }
+
+    private func reportPersistenceError(operation: String, error: Error) {
+        let nsError = error as NSError
+        let message = "\(operation) failed for owner '\(activeOwnerUID)'. \(nsError.localizedDescription) (domain: \(nsError.domain), code: \(nsError.code))"
+        lastPersistenceError = message
+        updateDebugStatus(message)
+    }
+
+    private func updateDebugStatus(_ message: String) {
+        debugStatus = message
+        print("WorkoutStore debug: \(message)")
     }
 }
