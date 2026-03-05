@@ -34,32 +34,29 @@ struct LiquidTabBar: View {
     @Binding var selectedTab: Tab
     @Binding var showAddWorkout: Bool
     private let barWidth: CGFloat = 365
+    private let tabBarBottomDrop: CGFloat = 24
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             tabCapsule
                 .frame(maxWidth: .infinity)
+                .offset(y: tabBarBottomDrop)
 
             if selectedTab == .home {
                 Button {
                     showAddWorkout = true
                 } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundStyle(Color.black)
-                        .frame(width: 58, height: 58)
-                        .background(
-                            Circle()
-                                .fill(.ultraThinMaterial)
-                                .overlay(
-                                    Circle()
-                                        .stroke(Color.white.opacity(0.7), lineWidth: 1)
-                                )
-                                .shadow(color: Color.black.opacity(0.12), radius: 12, x: 0, y: 5)
-                        )
+                    ZStack {
+                        addButtonBackground
+                        Image(systemName: "plus")
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundStyle(Color.black)
+                    }
+                    .frame(width: 58, height: 58)
+                    .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .offset(x: -6, y: -68)
+                .offset(x: -6, y: -54)
                 .transition(.opacity)
             }
         }
@@ -89,7 +86,47 @@ struct LiquidTabBar: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .frame(width: barWidth)
-        .background(
+        .background(tabCapsuleBackground)
+        .contentShape(Capsule(style: .continuous))
+        .onTapGesture {
+            // Consume taps in empty capsule areas so they don't pass through to content behind the tab bar.
+        }
+    }
+
+    @ViewBuilder
+    private var addButtonBackground: some View {
+        if #available(iOS 26.0, *) {
+            Circle()
+                .fill(.clear)
+                .glassEffect()
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.12), radius: 12, x: 0, y: 5)
+        } else {
+            Circle()
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.12), radius: 12, x: 0, y: 5)
+        }
+    }
+
+    @ViewBuilder
+    private var tabCapsuleBackground: some View {
+        if #available(iOS 26.0, *) {
+            Capsule(style: .continuous)
+                .fill(.clear)
+                .glassEffect()
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.12), radius: 18, x: 0, y: 8)
+        } else {
             Capsule(style: .continuous)
                 .fill(.ultraThinMaterial)
                 .overlay(
@@ -97,7 +134,7 @@ struct LiquidTabBar: View {
                         .stroke(Color.white.opacity(0.7), lineWidth: 1)
                 )
                 .shadow(color: Color.black.opacity(0.12), radius: 18, x: 0, y: 8)
-        )
+        }
     }
 }
 
