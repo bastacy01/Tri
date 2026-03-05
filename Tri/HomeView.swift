@@ -95,17 +95,23 @@ struct HomeView: View {
 
     private var header: some View {
         HStack {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .fill(Color.black)
-                        .frame(width: 40, height: 40)
-                    Text("T.")
-                        .font(.system(size: 26, weight: .medium, design: .serif))
-                        .foregroundStyle(.white)
-                }
+            /*
+            VStack(alignment: .leading, spacing: 2) {
                 Text("Tri")
                     .font(.system(size: 28, weight: .semibold, design: .serif))
+                Text(formattedCurrentDate)
+                    .font(.system(size: 13, weight: .medium, design: .serif))
+                    .foregroundStyle(Color.black.opacity(0.50))
+                    .offset(x: 2)
+            }
+            */
+            VStack(alignment: .leading, spacing: 1) {
+                Text(formattedWeekday)
+                    .font(.system(size: 24, weight: .semibold, design: .serif))
+                Text(formattedMonthDayYear)
+                    .font(.system(size: 12, weight: .semibold, design: .serif))
+                    .foregroundStyle(Color.gray)
+                    .offset(x: 2)
             }
 
             Spacer()
@@ -132,12 +138,52 @@ struct HomeView: View {
         }
     }
 
+    private var formattedCurrentDate: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMMM"
+        let now = Date()
+        let day = calendar.component(.day, from: now)
+        return "\(formatter.string(from: now)) \(day)\(ordinalSuffix(for: day))"
+    }
+
+    private var formattedWeekday: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE"
+        return formatter.string(from: Date())
+    }
+
+    private var formattedMonthDayYear: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM"
+        let now = Date()
+        let month = formatter.string(from: now)
+        let day = calendar.component(.day, from: now)
+        let year = calendar.component(.year, from: now)
+        return "\(month) \(day)\(ordinalSuffix(for: day)), \(year)"
+    }
+
+    private func ordinalSuffix(for day: Int) -> String {
+        if (11...13).contains(day % 100) {
+            return "th"
+        }
+        switch day % 10 {
+        case 1:
+            return "st"
+        case 2:
+            return "nd"
+        case 3:
+            return "rd"
+        default:
+            return "th"
+        }
+    }
+
     private var weekRings: some View {
         HStack(spacing: 10) {
             ForEach(weekDayRings) { day in
                 VStack(spacing: 8) {
                     Text(day.day)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold, design: .serif))
                         .foregroundStyle(Color.black)
                     ZStack {
                         RingView(progress: day.progress, lineWidth: 3, size: 44, tint: .black, background: Color.black.opacity(0.08))
@@ -158,13 +204,13 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text("\(Int(todayCalories))")
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
-                    Text("/\(Int(settings.dailyCaloriesGoal))")
+                        .font(.system(size: 36, weight: .bold))
+                    Text("/ \(Int(settings.dailyCaloriesGoal))")
                         .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(Color.black.opacity(0.45))
                 }
                 Text("Calories Burned")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold, design: .serif))
                     .foregroundStyle(Color.black.opacity(0.5))
             }
 
@@ -209,7 +255,7 @@ struct HomeView: View {
     private var recentWorkoutsContent: some View {
         if recentWorkoutsCurrentWeek.isEmpty {
             Text("No workouts yet")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 16, weight: .semibold, design: .serif))
                 .foregroundStyle(Color.black.opacity(0.5))
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.vertical, 12)
@@ -395,3 +441,10 @@ struct HomeView: View {
         return "\(formatted) \(type.unitLabel)"
     }
 }
+
+
+//struct HomeView_Previews: PreviewProvider {
+//    static var previews: some View {
+//        HomeView()
+//    }
+//}
