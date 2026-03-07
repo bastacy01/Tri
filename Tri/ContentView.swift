@@ -45,6 +45,7 @@ struct ContentView: View {
             if !store.isRepositoryConfigured {
                 store.configureRepository(SwiftDataWorkoutRepository(context: modelContext))
             }
+            store.updateOwnerUID(resolvedOwnerUID(Auth.auth().currentUser?.uid))
             settings.configureRepository(context: modelContext)
             syncSubscriptionStateFromEntitlements()
             startHealthKitIfEnabled()
@@ -52,12 +53,13 @@ struct ContentView: View {
                 authStateHandle = Auth.auth().addStateDidChangeListener { _, user in
                     isAuthenticated = (user != nil)
                     selectedTab = .home
+                    let ownerUID = resolvedOwnerUID(user?.uid)
+                    store.updateOwnerUID(ownerUID)
                     if let email = user?.email {
                         settings.userEmail = email
                     }
-                    settings.reloadFromStorage(ownerUID: user?.uid)
+                    settings.reloadFromStorage(ownerUID: ownerUID)
                     syncSubscriptionStateFromEntitlements()
-                    store.reloadFromStorage()
                 }
             }
         }
@@ -66,6 +68,23 @@ struct ContentView: View {
                 selectedTab = .home
                 syncSubscriptionStateFromEntitlements()
             }
+        }
+        .alert(
+            "Workout Persistence Error",
+            isPresented: Binding(
+                get: { store.lastPersistenceError != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        store.clearPersistenceError()
+                    }
+                }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                store.clearPersistenceError()
+            }
+        } message: {
+            Text(store.lastPersistenceError ?? "Unknown persistence error.")
         }
     }
 
@@ -98,7 +117,7 @@ struct ContentView: View {
     private func startHealthKitIfEnabled() {
 #if canImport(HealthKit)
         guard settings.healthKitSyncEnabled else { return }
-        let ownerUID = Auth.auth().currentUser?.uid ?? "local"
+        let ownerUID = resolvedOwnerUID(Auth.auth().currentUser?.uid)
         let syncRepository = SyncStateRepository(context: modelContext)
         Task { @MainActor in
             do {
@@ -133,6 +152,13 @@ struct ContentView: View {
             }
         }
 #endif
+    }
+
+    private func resolvedOwnerUID(_ uid: String?) -> String {
+        guard let uid else { return "local" }
+        let trimmed = uid.trimmingCharacters(in: .whitespacesAndNewlines)
+        let allowed = trimmed.filter { $0.isLetter || $0.isNumber || $0 == "_" || $0 == "-" }
+        return allowed.isEmpty ? "local" : allowed
     }
 
     private func syncSubscriptionStateFromEntitlements() {
