@@ -375,6 +375,7 @@ struct HomeView: View {
         let goal = settings.dailyCaloriesGoal
         guard goal > 0 else { return (0, 0) }
         let dates = lastNDates(30)
+        let today = Date()
         var current = 0
         var longest = 0
         var running = 0
@@ -389,8 +390,12 @@ struct HomeView: View {
         }
 
         current = 0
-        for date in lastNDates(30).reversed() {
+        for date in dates.reversed() {
             let calories = store.totalCalories(on: date)
+            if calendar.isDate(date, inSameDayAs: today), calories < goal {
+                // Don't reset current streak just because today is still in progress.
+                continue
+            }
             if calories >= goal {
                 current += 1
             } else {
