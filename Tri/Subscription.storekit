@@ -80,7 +80,7 @@
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Subscribe for a Year",
+              "description" : "Subscribe for a Year (Billed annually)",
               "displayName" : "Yearly",
               "locale" : "en_US"
             }
