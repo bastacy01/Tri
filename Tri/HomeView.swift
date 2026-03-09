@@ -340,6 +340,7 @@ struct HomeView: View {
     private func weeklyStreakCounts() -> (current: Int, longest: Int) {
         let weeks = lastNWeeks(52)
         guard !weeks.isEmpty else { return (0, 0) }
+        let currentWeekStart = calendar.dateInterval(of: .weekOfYear, for: Date())?.start
 
         var longest = 0
         var running = 0
@@ -354,6 +355,12 @@ struct HomeView: View {
 
         var current = 0
         for weekStart in weeks.reversed() {
+            if let currentWeekStart,
+               weekStart == currentWeekStart,
+               !isWeekCompleted(weekStart: weekStart) {
+                // Don't reset streak while the current week is still in progress.
+                continue
+            }
             if isWeekCompleted(weekStart: weekStart) {
                 current += 1
             } else {
