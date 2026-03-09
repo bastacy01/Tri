@@ -276,17 +276,16 @@ struct StatisticsView: View {
 
     private var dailyAverageCalories: Double {
         let calendar = Calendar.current
-        let today = Date()
-        guard let weekStart = calendar.dateInterval(of: .weekOfYear, for: today)?.start else { return 0 }
-        guard let end = calendar.date(byAdding: .day, value: -1, to: today) else { return 0 }
-        if end < weekStart { return 0 }
+        let today = calendar.startOfDay(for: Date())
+        guard let firstWorkoutDate = store.workouts.map(\.date).min() else { return 0 }
+        let start = calendar.startOfDay(for: firstWorkoutDate)
         var days = 0
         var total = 0.0
-        var date = weekStart
-        while date <= end {
+        var date = start
+        while date <= today {
             total += store.totalCalories(on: date, calendar: calendar)
             days += 1
-            date = calendar.date(byAdding: .day, value: 1, to: date) ?? end.addingTimeInterval(1)
+            date = calendar.date(byAdding: .day, value: 1, to: date) ?? today.addingTimeInterval(1)
         }
         guard days > 0 else { return 0 }
         return total / Double(days)
