@@ -22,6 +22,12 @@ struct StatisticsView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
 
+            HStack(alignment: .top, spacing: 12) {
+                dailyAverageCard
+                weeklyWorkoutsCard
+            }
+            .padding(.horizontal, 20)
+
             let points = dataPoints
             VStack(alignment: .leading, spacing: 12) {
                 Text("Track Progress")
@@ -140,37 +146,71 @@ struct StatisticsView: View {
                 cancelDismiss()
             }
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Daily Average Calories")
-                    .font(.system(size: 18, weight: .bold, design: .serif))
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("\(Int(dailyAverageCalories))")
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                    Text("cal")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.black.opacity(0.5))
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Weekly Workouts")
-                    .font(.system(size: 18, weight: .bold, design: .serif))
-                Text("\(weeklyWorkoutCount)")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-
-                HStack(spacing: 16) {
-                    statIconCount(type: .swim, count: weeklyWorkoutCount(for: .swim))
-                    statIconCount(type: .bike, count: weeklyWorkoutCount(for: .bike))
-                    statIconCount(type: .run, count: weeklyWorkoutCount(for: .run))
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 6)
-
             Spacer()
         }
+    }
+
+    private var dailyAverageCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Calories Burned")
+                .font(.system(size: 16, weight: .bold, design: .serif))
+                .frame(maxWidth: .infinity, alignment: .center)
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.black)
+                    .offset(y: -2)
+                Text(totalCaloriesBurned.formatted())
+                    .font(.system(size: 30, weight: .bold, design: .rounded))
+//                Text("cal")
+//                    .font(.system(size: 13, weight: .semibold))
+//                    .foregroundStyle(Color.black.opacity(0.5))
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+
+            HStack(spacing: 4) {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.65))
+                Text("Daily avg: \(Int(dailyAverageCalories).formatted()) cal")
+                    .font(.system(size: 12, weight: .medium, design: .serif))
+                    .foregroundStyle(Color.black.opacity(0.5))
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.white)
+                .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 4)
+        )
+    }
+
+    private var weeklyWorkoutsCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Weekly Workouts")
+                .font(.system(size: 16, weight: .bold, design: .serif))
+                .frame(maxWidth: .infinity, alignment: .center)
+            Text("\(weeklyWorkoutCount)")
+                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            HStack(spacing: 12) {
+                statIconCount(type: .swim, count: weeklyWorkoutCount(for: .swim))
+                statIconCount(type: .bike, count: weeklyWorkoutCount(for: .bike))
+                statIconCount(type: .run, count: weeklyWorkoutCount(for: .run))
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.white)
+                .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 4)
+        )
     }
 
     private var dataPoints: [StatPoint] {
@@ -289,6 +329,10 @@ struct StatisticsView: View {
         }
         guard days > 0 else { return 0 }
         return total / Double(days)
+    }
+
+    private var totalCaloriesBurned: Int {
+        Int(store.workouts.reduce(0) { $0 + $1.calories })
     }
 
     private func scheduleDismiss() {
