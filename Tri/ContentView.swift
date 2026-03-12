@@ -9,6 +9,9 @@ import SwiftUI
 import FirebaseAuth
 import SwiftData
 import StoreKit
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
@@ -19,6 +22,7 @@ struct ContentView: View {
     @State private var showAddWorkout = false
     @State private var isAuthenticated = Auth.auth().currentUser != nil
     @State private var authStateHandle: AuthStateDidChangeListenerHandle?
+    private let useNativeTabBarForTesting = true
 
     var body: some View {
         ZStack {
@@ -47,6 +51,7 @@ struct ContentView: View {
             }
             store.updateOwnerUID(resolvedOwnerUID(Auth.auth().currentUser?.uid))
             settings.configureRepository(context: modelContext)
+            configureNativeTabBarAppearance()
             syncSubscriptionStateFromEntitlements()
             startHealthKitIfEnabled()
             if authStateHandle == nil {
@@ -89,6 +94,16 @@ struct ContentView: View {
     }
 
     private var mainContent: some View {
+        Group {
+            if useNativeTabBarForTesting {
+                nativeTabMainContent
+            } else {
+                customTabMainContent
+            }
+        }
+    }
+
+    private var customTabMainContent: some View {
         ZStack {
             switch selectedTab {
             case .home:
@@ -110,6 +125,63 @@ struct ContentView: View {
             }
             .presentationDetents([.large])
 //            .presentationDetents([.height(505)])
+            .presentationDragIndicator(.visible)
+        }
+    }
+
+    private var nativeTabMainContent: some View {
+        TabView(selection: $selectedTab) {
+            HomeView()
+                .tag(Tab.home)
+                .tabItem {
+                    Label(Tab.home.rawValue, systemImage: Tab.home.systemImage)
+                }
+                .background(Color(white: 0.97).ignoresSafeArea())
+
+            CalendarView()
+                .tag(Tab.calendar)
+                .tabItem {
+                    Label(Tab.calendar.rawValue, systemImage: Tab.calendar.systemImage)
+                }
+
+            StatisticsView()
+                .tag(Tab.statistics)
+                .tabItem {
+                    Label(Tab.statistics.rawValue, systemImage: Tab.statistics.systemImage)
+                }
+
+            ProfileView()
+                .tag(Tab.profile)
+                .tabItem {
+                    Label(Tab.profile.rawValue, systemImage: Tab.profile.systemImage)
+                }
+        }
+        .tint(.black)
+        .toolbarBackground(Color(white: 0.97), for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
+        .overlay(alignment: .bottomTrailing) {
+            if selectedTab == .home {
+                Button {
+                    showAddWorkout = true
+                } label: {
+                    ZStack {
+                        nativeAddButtonBackground
+                        Image(systemName: "plus")
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundStyle(Color.black)
+                    }
+                    .frame(width: 58, height: 58)
+                }
+                .buttonStyle(.plain)
+                .padding(.trailing, 20)
+                .padding(.bottom, 66)
+            }
+        }
+        .sheet(isPresented: $showAddWorkout) {
+            AddWorkoutSheet { workout in
+                store.addManualWorkout(workout)
+            }
+            .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
     }
@@ -174,6 +246,50 @@ struct ContentView: View {
             }
             settings.hasActiveSubscription = (activeProductID != nil)
             settings.subscriptionProductID = activeProductID
+        }
+    }
+
+    private func configureNativeTabBarAppearance() {
+#if canImport(UIKit)
+        let appearance = UITabBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = UIColor(white: 0.97, alpha: 1.0)
+        let layouts = [
+            appearance.stackedLayoutAppearance,
+            appearance.inlineLayoutAppearance,
+            appearance.compactInlineLayoutAppearance
+        ]
+        for layout in layouts {
+            layout.normal.iconColor = .black
+            layout.normal.titleTextAttributes = [.foregroundColor: UIColor.black]
+            layout.selected.iconColor = .black
+            layout.selected.titleTextAttributes = [.foregroundColor: UIColor.black]
+        }
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+        UITabBar.appearance().unselectedItemTintColor = .black
+#endif
+    }
+
+    @ViewBuilder
+    private var nativeAddButtonBackground: some View {
+        if #available(iOS 26.0, *) {
+            Circle()
+                .fill(.clear)
+                .glassEffect()
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.12), radius: 12, x: 0, y: 5)
+        } else {
+            Circle()
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.12), radius: 12, x: 0, y: 5)
         }
     }
 }
