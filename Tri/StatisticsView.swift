@@ -14,6 +14,8 @@ struct StatisticsView: View {
     @State private var selectedPoint: StatPoint?
     @State private var isInteracting = false
     @State private var dismissTask: DispatchWorkItem?
+    @State private var visibleWeekCount: Int = 8
+    @State private var expandedWeekStart: Date?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -40,6 +42,16 @@ struct StatisticsView: View {
                     )
                     .foregroundStyle(Color.black)
                     .interpolationMethod(.monotone) // .interpolationMethod(.catmullRom) Changed to remove dip below x-axis
+
+                    if let selectedPoint, isInteracting,
+                       Calendar.current.isDate(point.date, inSameDayAs: selectedPoint.date) {
+                        PointMark(
+                            x: .value("Date", point.date),
+                            y: .value("Distance", point.value)
+                        )
+                        .symbolSize(55)
+                        .foregroundStyle(Color.black)
+                    }
                 }
                 .chartXAxis {
                     switch period {
@@ -51,10 +63,15 @@ struct StatisticsView: View {
                             }
                         }
                     case .oneMonth:
-                        AxisMarks(values: .stride(by: .weekOfYear)) { value in
+                        let axisDates = oneMonthAxisDates(points: points, tickCount: 5)
+                        AxisMarks(values: axisDates) { value in
                             AxisGridLine()
                             AxisValueLabel {
-                                Text(axisLabel(for: value.as(Date.self)))
+                                if let date = value.as(Date.self), isOneMonthAxisEnd(date, axisDates: axisDates) {
+                                    EmptyView()
+                                } else {
+                                    Text(axisLabel(for: value.as(Date.self)))
+                                }
                             }
                         }
                     case .sixMonths, .oneYear:
@@ -118,7 +135,7 @@ struct StatisticsView: View {
                                 )
                                 .position(
                                     x: plotFrame.origin.x + xPosition,
-                                    y: plotFrame.origin.y + max(12, yPosition - 28)
+                                    y: plotFrame.origin.y + max(12, yPosition - 34)
                                 )
                             }
                         }
@@ -145,6 +162,8 @@ struct StatisticsView: View {
                 isInteracting = false
                 cancelDismiss()
             }
+
+            weeklyHistorySection
 
             Spacer()
         }
@@ -218,11 +237,11 @@ struct StatisticsView: View {
         let now = Date()
         switch period {
         case .oneWeek:
-            guard let weekStart = calendar.dateInterval(of: .weekOfYear, for: now)?.start else { return [] }
-            return aggregateByDay(from: weekStart, days: 7)
+            guard let start = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: now)) else { return [] }
+            return aggregateByDay(from: start, days: 7)
         case .oneMonth:
-            guard let monthInterval = calendar.dateInterval(of: .month, for: now) else { return [] }
-            return aggregateByDay(from: monthInterval.start, days: calendar.dateComponents([.day], from: monthInterval.start, to: monthInterval.end).day ?? 30)
+            guard let start = calendar.date(byAdding: .day, value: -29, to: calendar.startOfDay(for: now)) else { return [] }
+            return aggregateByDay(from: start, days: 30)
         case .sixMonths:
             guard let start = calendar.date(byAdding: .month, value: -5, to: startOfMonth(now)) else { return [] }
             return aggregateByMonth(from: start, months: 6)
@@ -303,6 +322,25 @@ struct StatisticsView: View {
         points.min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) })
     }
 
+    private func oneMonthAxisDates(points: [StatPoint], tickCount: Int) -> [Date] {
+        guard let first = points.first?.date, let last = points.last?.date, tickCount > 1 else { return [] }
+        let start = Calendar.current.startOfDay(for: first)
+        let end = Calendar.current.startOfDay(for: last)
+        let totalInterval = end.timeIntervalSince(start)
+        if totalInterval <= 0 {
+            return [start]
+        }
+        let step = totalInterval / Double(tickCount - 1)
+        return (0..<tickCount).map { index in
+            start.addingTimeInterval(step * Double(index))
+        }
+    }
+
+    private func isOneMonthAxisEnd(_ date: Date, axisDates: [Date]) -> Bool {
+        guard let end = axisDates.last else { return false }
+        return abs(date.timeIntervalSince(end)) < 1
+    }
+
     private func distanceInMiles(_ workout: Workout) -> Double {
         if workout.type == .swim {
             return workout.distance / 1760.0
@@ -333,6 +371,125 @@ struct StatisticsView: View {
 
     private var totalCaloriesBurned: Int {
         Int(store.workouts.reduce(0) { $0 + $1.calories })
+    }
+
+    private var weeklyHistorySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Weekly History")
+                .font(.system(size: 18, weight: .bold, design: .serif))
+
+            if weeklySummaries.isEmpty {
+                Text("No weekly history yet")
+                    .font(.system(size: 14, weight: .semibold, design: .serif))
+                    .foregroundStyle(Color.black.opacity(0.5))
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 10)
+            } else {
+                ForEach(visibleWeeklySummaries) { summary in
+                    let isExpanded = expandedWeekStart == summary.weekStart
+                    VStack(alignment: .leading, spacing: 0) {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                if isExpanded {
+                                    expandedWeekStart = nil
+                                } else {
+                                    expandedWeekStart = summary.weekStart
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text(summary.label)
+                                    .font(.system(size: 14, weight: .semibold, design: .serif))
+                                    .foregroundStyle(.black)
+                                Spacer()
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(Color.black.opacity(0.65))
+                                    .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                        }
+                        .buttonStyle(.plain)
+
+                        if isExpanded {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Divider()
+                                    .overlay(Color.black.opacity(0.08))
+                                    .padding(.bottom, 4)
+                                Text("Workouts: \(summary.sessionCount) sessions")
+                                Text("Distance: \(formatMiles(summary.totalDistanceMiles)) mi")
+                                Text("Calories: \(Int(summary.totalCalories).formatted()) cal")
+                            }
+                            .font(.system(size: 13, weight: .medium, design: .serif))
+                            .foregroundStyle(Color.black.opacity(0.65))
+                            .padding(.horizontal, 14)
+                            .padding(.bottom, 12)
+                            .transition(.opacity)
+                        }
+                    }
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(.white)
+                            .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 3)
+                    )
+                }
+
+                if weeklySummaries.count > visibleWeekCount {
+                    Button("Load more") {
+                        visibleWeekCount = min(visibleWeekCount + 8, weeklySummaries.count)
+                    }
+                    .font(.system(size: 14, weight: .semibold, design: .serif))
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.top, 2)
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private var weeklySummaries: [WeekSummary] {
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: store.workouts) { workout -> Date in
+            calendar.dateInterval(of: .weekOfYear, for: workout.date)?.start ?? calendar.startOfDay(for: workout.date)
+        }
+
+        return grouped.keys.sorted(by: >).map { weekStart in
+            let workouts = grouped[weekStart] ?? []
+            let totalDistanceMiles = workouts.reduce(0.0) { partial, workout in
+                partial + distanceInMiles(workout)
+            }
+            let totalCalories = workouts.reduce(0.0) { $0 + $1.calories }
+            let label = weekLabel(for: weekStart, calendar: calendar)
+            return WeekSummary(
+                weekStart: weekStart,
+                label: label,
+                sessionCount: workouts.count,
+                totalDistanceMiles: totalDistanceMiles,
+                totalCalories: totalCalories
+            )
+        }
+    }
+
+    private var visibleWeeklySummaries: [WeekSummary] {
+        Array(weeklySummaries.prefix(visibleWeekCount))
+    }
+
+    private func weekLabel(for weekStart: Date, calendar: Calendar) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        let start = formatter.string(from: weekStart)
+        let weekEnd = calendar.date(byAdding: .day, value: 6, to: weekStart) ?? weekStart
+        let end = formatter.string(from: weekEnd)
+        return "\(start) - \(end)"
+    }
+
+    private func formatMiles(_ value: Double) -> String {
+        if value >= 100 {
+            return String(format: "%.0f", value)
+        }
+        return String(format: "%.1f", value)
     }
 
     private func scheduleDismiss() {
@@ -373,6 +530,15 @@ struct StatisticsView: View {
                 .foregroundStyle(Color.black)
         }
     }
+}
+
+private struct WeekSummary: Identifiable {
+    var id: Date { weekStart }
+    let weekStart: Date
+    let label: String
+    let sessionCount: Int
+    let totalDistanceMiles: Double
+    let totalCalories: Double
 }
 
 enum StatsPeriod: CaseIterable {
