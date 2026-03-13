@@ -10,7 +10,7 @@ import Charts
 
 struct StatisticsView: View {
     @EnvironmentObject private var store: WorkoutStore
-    @State private var period: StatsPeriod = .oneMonth
+    @State private var period: StatsPeriod = .oneWeek
     @State private var selectedPoint: StatPoint?
     @State private var isInteracting = false
     @State private var dismissTask: DispatchWorkItem?
@@ -60,6 +60,7 @@ struct StatisticsView: View {
                             AxisGridLine()
                             AxisValueLabel {
                                 Text(axisLabel(for: value.as(Date.self)))
+                                    .offset(x: xAxisLabelOffset(for: .oneWeek))
                             }
                         }
                     case .oneMonth:
@@ -71,14 +72,24 @@ struct StatisticsView: View {
                                     EmptyView()
                                 } else {
                                     Text(axisLabel(for: value.as(Date.self)))
+                                        .offset(x: xAxisLabelOffset(for: .oneMonth))
                                 }
                             }
                         }
-                    case .sixMonths, .oneYear:
+                    case .sixMonths:
                         AxisMarks(values: points.map { $0.date }) { value in
                             AxisGridLine()
                             AxisValueLabel {
                                 Text(axisLabel(for: value.as(Date.self)))
+                                    .offset(x: xAxisLabelOffset(for: .sixMonths))
+                            }
+                        }
+                    case .oneYear:
+                        AxisMarks(values: points.map { $0.date }) { value in
+                            AxisGridLine()
+                            AxisValueLabel {
+                                Text(axisLabel(for: value.as(Date.self)))
+                                    .offset(x: xAxisLabelOffset(for: .oneYear))
                             }
                         }
                     }
@@ -315,6 +326,19 @@ struct StatisticsView: View {
                 return String(label.prefix(1))
             }
             return label
+        }
+    }
+
+    private func xAxisLabelOffset(for period: StatsPeriod) -> CGFloat {
+        switch period {
+        case .oneWeek:
+            return -10
+        case .oneMonth:
+            return -11
+        case .sixMonths:
+            return -11
+        case .oneYear:
+            return -9
         }
     }
 
