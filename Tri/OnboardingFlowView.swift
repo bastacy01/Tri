@@ -64,8 +64,10 @@ struct OnboardingFlowView: View {
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
+                .contentShape(Rectangle())
+                .gesture(DragGesture())
 
-                if !isReauthOnly {
+                if !isReauthOnly && step != 0 {
                     HStack(spacing: 12) {
                         ForEach(0..<6, id: \.self) { index in
                             Capsule()
@@ -76,7 +78,7 @@ struct OnboardingFlowView: View {
                     .padding(.vertical, 10)
                 }
 
-                if !isReauthOnly && step < 5 {
+                if !isReauthOnly && step < 5 && step != 0 {
                     Button {
                         advance()
                     } label: {
@@ -161,60 +163,85 @@ struct OnboardingFlowView: View {
     }
 
     private var signInStep: some View {
-        VStack(spacing: 15) {
-            Spacer()
-            VStack(spacing: 5) {
-                Text("Tri")
-                    .font(.system(size: 32, weight: .bold, design: .serif))
-                Text("Triathletes")
-                    .font(.system(size: 18, weight: .semibold, design: .serif))
-                Text("Swim. Bike. Run. Track your progress.")
-                    .font(.system(size: 12, weight: .semibold, design: .serif))
-                    .foregroundStyle(Color.black.opacity(0.6))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-            }
-            .padding(.bottom, 14)
-
-            SignInWithAppleButton(.signIn) { request in
-                let nonce = randomNonceString()
-                currentNonce = nonce
-                request.requestedScopes = [.email]
-                request.nonce = sha256(nonce)
-            } onCompletion: { result in
-                handleAppleSignIn(result)
-            }
-            .signInWithAppleButtonStyle(.black)
-            .frame(height: 48)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .padding(.horizontal, 40)
-
-            Button {
-                signInWithGoogle()
-            } label: {
-                HStack(spacing: 8) {
-                    Image("googleIcon")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 13, height: 13)
-                        .offset(x: 10)
-                    Text("Sign in with Google")
-                        .font(.system(size: 19, weight: .medium))
-                        .offset(x: 7)
+        ZStack {
+            VStack(spacing: 15) {
+                Spacer()
+                VStack(spacing: 5) {
+                    Image(systemName: "figure.run")
+                        .font(.system(size: 30, weight: .semibold))
+                        .foregroundStyle(Color.black)
+                    Text("Tri")
+                        .font(.system(size: 32, weight: .bold, design: .serif))
+                    Text("Triathletes")
+                        .font(.system(size: 18, weight: .semibold, design: .serif))
+                    Text("Swim. Bike. Run. Track your workouts.")
+                        .font(.system(size: 12, weight: .semibold, design: .serif))
+                        .foregroundStyle(Color.black.opacity(0.6))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.black)
-                )
-            }
-            .foregroundStyle(Color.white)
-            .frame(height: 48)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .padding(.horizontal, 40)
-            .disabled(FirebaseApp.app()?.options.clientID == nil)
+                .padding(.bottom, 14)
 
-            Spacer()
+                Spacer()
+
+                Button {
+                    signInWithGoogle()
+                } label: {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 30, style: .continuous)
+                            .fill(Color.white)
+                        HStack {
+                            Image("googleIcon")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 20, height: 20)
+                            Spacer()
+                        }
+                        .padding(.leading, 20)
+                        Text("Continue with Google")
+                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .foregroundStyle(Color.black)
+                .frame(height: 50)
+                .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+                .shadow(color: Color.black.opacity(0.12), radius: 6, x: 0, y: 3)
+                .padding(.horizontal, 40)
+                .disabled(FirebaseApp.app()?.options.clientID == nil)
+
+                ZStack {
+                    RoundedRectangle(cornerRadius: 30, style: .continuous)
+                        .fill(Color.black)
+                    HStack {
+                        Image(systemName: "apple.logo")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(Color.white)
+                        Spacer()
+                    }
+                    .padding(.leading, 20)
+                    Text("Continue with Apple")
+                        .font(.system(size: 15, weight: .semibold, design: .serif))
+                        .foregroundStyle(Color.white)
+                        .frame(maxWidth: .infinity)
+                }
+                .frame(height: 50)
+                .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+                .padding(.horizontal, 40)
+                .overlay {
+                    SignInWithAppleButton(.signIn) { request in
+                        let nonce = randomNonceString()
+                        currentNonce = nonce
+                        request.requestedScopes = [.email]
+                        request.nonce = sha256(nonce)
+                    } onCompletion: { result in
+                        handleAppleSignIn(result)
+                    }
+                    .signInWithAppleButtonStyle(.black)
+                    .opacity(0.01)
+                }
+                .padding(.bottom, 24)
+            }
         }
     }
 
@@ -375,6 +402,7 @@ struct OnboardingFlowView: View {
             ProgressView()
         }
         .tint(Color.primary)
+        .fontDesign(.serif)
         .interactiveDismissDisabled()
         .onInAppPurchaseStart { product in
             print("Purchasing \(product.displayName)")
@@ -439,6 +467,7 @@ struct OnboardingFlowView: View {
                 .foregroundStyle(.red)
             }
             .font(.caption)
+            .fontDesign(.serif)
             .foregroundStyle(.gray)
         }
     }
@@ -583,6 +612,7 @@ struct OnboardingFlowView: View {
                 let authResult = try await Auth.auth().signIn(with: credential)
                 settings.userEmail = authResult.user.email ?? settings.userEmail
                 hasCompletedSignIn = true
+                finishSignInRouting()
             } catch {
                 authErrorMessage = error.localizedDescription
             }
@@ -617,9 +647,19 @@ struct OnboardingFlowView: View {
                         settings.userEmail = email
                     }
                     hasCompletedSignIn = true
+                    finishSignInRouting()
                 } catch {
                     authErrorMessage = error.localizedDescription
                 }
+            }
+        }
+    }
+
+    private func finishSignInRouting() {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            if !settings.hasOnboarded && !requiresPaywallAfterSignIn && !isReauthOnly {
+                advance()
             }
         }
     }
