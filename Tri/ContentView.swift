@@ -22,6 +22,7 @@ struct ContentView: View {
     @State private var showAddWorkout = false
     @State private var isAuthenticated = Auth.auth().currentUser != nil
     @State private var authStateHandle: AuthStateDidChangeListenerHandle?
+    @State private var isAuthTransitioning = false
     private let useNativeTabBarForTesting = true
 
     var body: some View {
@@ -37,10 +38,18 @@ struct ContentView: View {
             )
             .ignoresSafeArea()
 
-            if settings.hasOnboarded && settings.hasActiveSubscription && isAuthenticated {
+            if isAuthTransitioning {
+                ProgressView()
+            } else if settings.hasOnboarded && settings.hasActiveSubscription && isAuthenticated {
                 mainContent
+                    .onAppear {
+                        print("[Tri] Showing Home. onboarded=\(settings.hasOnboarded) active=\(settings.hasActiveSubscription) auth=\(isAuthenticated)")
+                    }
             } else {
                 OnboardingFlowView()
+                    .onAppear {
+                        print("[Tri] Showing Onboarding. onboarded=\(settings.hasOnboarded) active=\(settings.hasActiveSubscription) auth=\(isAuthenticated)")
+                    }
             }
         }
         .environmentObject(store)
@@ -56,7 +65,12 @@ struct ContentView: View {
             startHealthKitIfEnabled()
             if authStateHandle == nil {
                 authStateHandle = Auth.auth().addStateDidChangeListener { _, user in
+                    let wasAuthenticated = isAuthenticated
                     isAuthenticated = (user != nil)
+                    print("[Tri] Auth state changed. isAuthenticated=\(isAuthenticated) uid=\(user?.uid ?? "nil")")
+                    if !wasAuthenticated && isAuthenticated {
+                        isAuthTransitioning = true
+                    }
                     selectedTab = .home
                     let ownerUID = resolvedOwnerUID(user?.uid)
                     store.updateOwnerUID(ownerUID)
@@ -64,7 +78,14 @@ struct ContentView: View {
                         settings.userEmail = email
                     }
                     settings.reloadFromStorage(ownerUID: ownerUID)
+                    print("[Tri] Reloaded settings. hasOnboarded=\(settings.hasOnboarded) hasActiveSubscription=\(settings.hasActiveSubscription)")
                     syncSubscriptionStateFromEntitlements()
+                    if isAuthenticated {
+                        Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 1_000_000_000)
+                            isAuthTransitioning = false
+                        }
+                    }
                 }
             }
         }
@@ -235,6 +256,7 @@ struct ContentView: View {
 
     private func syncSubscriptionStateFromEntitlements() {
         guard isAuthenticated else { return }
+        print("[Tri] Syncing subscriptions from entitlements...")
         Task { @MainActor in
             var activeProductID: String?
             for await result in Transaction.currentEntitlements {
@@ -246,6 +268,10 @@ struct ContentView: View {
             }
             settings.hasActiveSubscription = (activeProductID != nil)
             settings.subscriptionProductID = activeProductID
+            if settings.hasActiveSubscription && !settings.hasOnboarded {
+                settings.hasOnboarded = true
+            }
+            print("[Tri] Entitlement sync done. activeProductID=\(activeProductID ?? "nil") hasActiveSubscription=\(settings.hasActiveSubscription)")
         }
     }
 
