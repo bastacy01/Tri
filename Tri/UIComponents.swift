@@ -25,6 +25,7 @@ struct RingView: View {
                     style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
+                .animation(.easeOut(duration: 0.85), value: progress)
         }
         .frame(width: size, height: size)
     }
@@ -140,6 +141,7 @@ struct LiquidTabBar: View {
 
 struct WorkoutCardView: View {
     let card: WorkoutCard
+    let ringProgress: Double
     let onTap: () -> Void
 
     var body: some View {
@@ -156,7 +158,7 @@ struct WorkoutCardView: View {
                 HStack {
                     Spacer()
                     ZStack {
-                        RingView(progress: card.progress, lineWidth: 6, size: 64, tint: .black, background: Color.black.opacity(0.12))
+                        RingView(progress: ringProgress, lineWidth: 6, size: 64, tint: .black, background: Color.black.opacity(0.12))
                         Image(systemName: card.type.systemImage)
                             .font(.system(size: 20, weight: .semibold))
                             .foregroundStyle(Color.black)
@@ -245,7 +247,7 @@ struct StreaksSheet: View {
             VStack(spacing: 8) {
                 Image(systemName: "flame.fill")
                     .font(.system(size: 66, weight: .bold))
-                    .foregroundStyle(Color.orange.gradient)
+                    .foregroundStyle(Color.black.gradient)
 
                 Text("\(currentStreak)")
                     .font(.system(size: 58, weight: .bold, design: .rounded))
