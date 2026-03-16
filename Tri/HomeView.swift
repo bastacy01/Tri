@@ -15,6 +15,8 @@ struct HomeView: View {
     @State private var selectedWorkout: Workout?
     @State private var workoutPendingDeletion: Workout?
     @State private var showDeleteWorkoutConfirm = false
+    @State private var animateRings = false
+    @State private var hasAnimatedRings = false
 
     private let calendar = Calendar.current
     private let fixedHeaderInset: CGFloat = 82
@@ -34,6 +36,9 @@ struct HomeView: View {
             }
 
             fixedHeader
+        }
+        .onAppear {
+            triggerRingAnimationIfNeeded()
         }
         .sheet(isPresented: $showStreaks) {
             StreaksSheet(
@@ -107,11 +112,10 @@ struct HomeView: View {
             */
             VStack(alignment: .leading, spacing: 1) {
                 Text(formattedWeekday)
-                    .font(.system(size: 24, weight: .semibold, design: .serif))
+                    .font(.system(size: 26, weight: .bold, design: .serif)) // 24, semibold
                 Text(formattedMonthDayYear)
-                    .font(.system(size: 12, weight: .semibold, design: .serif))
+                    .font(.system(size: 13, weight: .semibold, design: .serif))
                     .foregroundStyle(Color.gray)
-                    .offset(x: 2)
             }
 
             Spacer()
@@ -186,7 +190,7 @@ struct HomeView: View {
                         .font(.system(size: 14, weight: .semibold, design: .serif))
                         .foregroundStyle(Color.black)
                     ZStack {
-                        RingView(progress: day.progress, lineWidth: 3, size: 44, tint: .black, background: Color.black.opacity(0.08))
+                        RingView(progress: ringProgress(day.progress), lineWidth: 3, size: 44, tint: .black, background: Color.black.opacity(0.08))
                         Text(day.date)
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(Color.black.opacity(0.65))
@@ -217,7 +221,7 @@ struct HomeView: View {
             Spacer()
 
             ZStack {
-                RingView(progress: progress, lineWidth: 8, size: 72, tint: .black, background: Color.black.opacity(0.12))
+                RingView(progress: ringProgress(progress), lineWidth: 8, size: 72, tint: .black, background: Color.black.opacity(0.12))
                 Image(systemName: "flame.fill")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(Color.black)
@@ -234,10 +238,23 @@ struct HomeView: View {
     private var workoutCardsRow: some View {
         HStack(spacing: 14) {
             ForEach(workoutCards) { card in
-                WorkoutCardView(card: card) {
+                WorkoutCardView(card: card, ringProgress: ringProgress(card.progress)) {
                     showGoalSheet = card.type
                 }
             }
+        }
+    }
+
+    private func ringProgress(_ value: Double) -> Double {
+        animateRings ? value : 0
+    }
+
+    private func triggerRingAnimationIfNeeded() {
+        guard !hasAnimatedRings else { return }
+        hasAnimatedRings = true
+        animateRings = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            animateRings = true
         }
     }
 
