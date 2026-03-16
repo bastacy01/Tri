@@ -58,10 +58,36 @@ final class UserSettings: ObservableObject {
         let uid = normalizedOwnerUID(ownerUID ?? Auth.auth().currentUser?.uid)
         do {
             let loaded = try repository.load(ownerUID: uid, seed: legacySeed)
-            apply(loaded)
-            persistLegacySnapshot(from: loaded)
+            var state = loaded
+            let defaultDaily = 1000.0
+            let defaultSwim = 1000.0
+            let defaultBike = 10.0
+            let defaultRun = 5.0
+            let loadedIsDefaultGoals =
+                loaded.dailyCaloriesGoal == defaultDaily &&
+                loaded.weeklySwimGoal == defaultSwim &&
+                loaded.weeklyBikeGoal == defaultBike &&
+                loaded.weeklyRunGoal == defaultRun
+            let legacyHasCustomGoals =
+                legacyDailyCaloriesGoal != defaultDaily ||
+                legacyWeeklySwimGoal != defaultSwim ||
+                legacyWeeklyBikeGoal != defaultBike ||
+                legacyWeeklyRunGoal != defaultRun
+
+            if loadedIsDefaultGoals && legacyHasCustomGoals {
+                state.dailyCaloriesGoal = legacyDailyCaloriesGoal
+                state.weeklySwimGoal = legacyWeeklySwimGoal
+                state.weeklyBikeGoal = legacyWeeklyBikeGoal
+                state.weeklyRunGoal = legacyWeeklyRunGoal
+                try? repository.save(ownerUID: uid, state: state)
+            }
+
+            apply(state)
+            persistLegacySnapshot(from: state)
+            print("[Tri] UserSettings loaded for uid=\(uid) hasOnboarded=\(state.hasOnboarded) hasActiveSubscription=\(state.hasActiveSubscription)")
         } catch {
             apply(legacySeed)
+            print("[Tri] UserSettings load failed for uid=\(uid). Using legacy seed. error=\(error.localizedDescription)")
         }
     }
 
