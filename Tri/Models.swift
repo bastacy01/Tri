@@ -92,17 +92,19 @@ enum WorkoutSource: String {
 }
 
 struct DayRing: Identifiable {
-    let id = UUID()
     let day: String
     let date: String
     let progress: Double
+
+    var id: String { "\(day)-\(date)" }
 }
 
 struct WorkoutCard: Identifiable {
-    let id = UUID()
     let type: WorkoutType
     let distance: String
     let progress: Double
+
+    var id: WorkoutType { type }
 }
 
 struct RecentWorkout: Identifiable {
