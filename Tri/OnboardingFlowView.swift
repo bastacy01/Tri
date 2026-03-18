@@ -167,11 +167,13 @@ struct OnboardingFlowView: View {
             VStack(spacing: 15) {
                 Spacer()
                 VStack(spacing: 5) {
-                    Image(systemName: "figure.run")
-                        .font(.system(size: 30, weight: .semibold))
-                        .foregroundStyle(Color.black)
+                Image("Triicon3")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 32, height: 32)
                     Text("Tri")
                         .font(.system(size: 32, weight: .bold, design: .serif))
+                        .offset(y: 5)
                     Text("Triathletes")
                         .font(.system(size: 18, weight: .semibold, design: .serif))
                     Text("Swim. Bike. Run. Track your workouts.")
@@ -437,7 +439,7 @@ struct OnboardingFlowView: View {
                 RoundedRectangle(cornerRadius: 25, style: .continuous)
                     .fill(Color.black)
                     .frame(width: 100, height: 100)
-                Text("T.")
+                Text("T")
                     .font(.system(size: 65, weight: .semibold, design: .serif))
                     .foregroundStyle(.white)
             }
