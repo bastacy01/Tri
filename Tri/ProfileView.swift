@@ -33,7 +33,7 @@ struct ProfileView: View {
                         showSettingsSheet = true
                     } label: {
                         Image(systemName: "gearshape")
-                            .font(.system(size: 24, weight: .regular))
+                            .font(.system(size: 20, weight: .regular))
                             .foregroundStyle(Color.black)
                     }
                     .buttonStyle(.plain)
@@ -121,12 +121,9 @@ struct ProfileView: View {
                     .font(.system(size: 14, weight: .semibold, design: .serif))
                     .foregroundStyle(Color.black.opacity(0.55))
 
-                Toggle("Swim goal", isOn: $settings.streakIncludeSwim)
-                    .tint(.black)
-                Toggle("Bike goal", isOn: $settings.streakIncludeBike)
-                    .tint(.black)
-                Toggle("Run goal", isOn: $settings.streakIncludeRun)
-                    .tint(.black)
+                compactToggle(label: "Swim goal", isOn: $settings.streakIncludeSwim)
+                compactToggle(label: "Bike goal", isOn: $settings.streakIncludeBike)
+                compactToggle(label: "Run goal", isOn: $settings.streakIncludeRun)
             }
             .padding(16)
             .background(
@@ -143,8 +140,7 @@ struct ProfileView: View {
                 .font(.system(size: 20, weight: .bold, design: .serif))
 
             VStack(alignment: .leading, spacing: 10) {
-                Toggle("Sync Apple Watch Workouts", isOn: healthKitToggleBinding)
-                    .tint(.black)
+                compactToggle(label: "Sync Apple Watch Workouts", isOn: healthKitToggleBinding)
 
                 Text("When enabled, Tri will add workouts done on Apple Watch to app.")
                     .font(.system(size: 13, weight: .semibold))
@@ -282,6 +278,17 @@ struct ProfileView: View {
         .padding(.horizontal, 20)
         .padding(.top, 20)
         .padding(.bottom, 24)
+    }
+
+    private func compactToggle(label: String, isOn: Binding<Bool>) -> some View {
+        HStack {
+            Text(label)
+            Spacer()
+            Toggle("", isOn: isOn)
+                .labelsHidden()
+                .toggleStyle(SwitchToggleStyle(tint: .black))
+                .scaleEffect(0.80)
+        }
     }
 
     private var subscriptionPlan: String {
