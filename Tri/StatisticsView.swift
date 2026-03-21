@@ -31,28 +31,76 @@ struct StatisticsView: View {
             .padding(.horizontal, 20)
 
             let points = dataPoints
+            let chartPoints = clampedPoints
+            let firstWorkoutMonth = firstWorkoutMonthStart
+            let isMonthPeriod = period == .sixMonths || period == .oneYear
+            let preDataPoints = (isMonthPeriod && firstWorkoutMonth != nil) ? chartPoints.filter { $0.date < firstWorkoutMonth! } : []
+            let postDataPoints = (isMonthPeriod && firstWorkoutMonth != nil) ? chartPoints.filter { $0.date >= firstWorkoutMonth! } : chartPoints
             VStack(alignment: .leading, spacing: 12) {
                 Text("Track Progress")
                     .font(.system(size: 18, weight: .bold, design: .serif))
 
-                Chart(clampedPoints) { point in
-                    LineMark(
-                        x: .value("Date", point.date),
-                        y: .value("Distance", point.value)
-                    )
-                    .foregroundStyle(Color.black)
-                    .interpolationMethod(.monotone) // .interpolationMethod(.catmullRom) Changed to remove dip below x-axis
+                let hasWorkoutToday = store.workouts.contains { Calendar.current.isDateInToday($0.date) }
+                let shouldDashTodaySegment = (period == .oneWeek || period == .oneMonth) && !hasWorkoutToday && chartPoints.count >= 2
+                let dashedSegmentPoints = shouldDashTodaySegment ? Array(chartPoints.suffix(2)) : []
+                let solidLinePoints = shouldDashTodaySegment ? Array(chartPoints.dropLast(1)) : chartPoints
+                Chart {
+                    if isMonthPeriod, let _ = firstWorkoutMonth {
+                        ForEach(preDataPoints) { point in
+                            LineMark(
+                                x: .value("Date", point.date),
+                                y: .value("Distance", point.value)
+                            )
+                            .foregroundStyle(Color.black.opacity(0.6))
+                            .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, dash: [4, 4]))
+                            .interpolationMethod(.monotone)
+                        }
+                        ForEach(postDataPoints) { point in
+                            LineMark(
+                                x: .value("Date", point.date),
+                                y: .value("Distance", point.value)
+                            )
+                            .foregroundStyle(Color.black)
+                            .interpolationMethod(.monotone)
+                        }
+                    } else {
+                        ForEach(solidLinePoints) { point in
+                            LineMark(
+                                x: .value("Date", point.date),
+                                y: .value("Distance", point.value)
+                            )
+                            .foregroundStyle(by: .value("Series", "solid"))
+                            .interpolationMethod(.monotone)
+                        }
+                    }
 
-                    if let selectedPoint, isInteracting,
-                       Calendar.current.isDate(point.date, inSameDayAs: selectedPoint.date) {
+                    if shouldDashTodaySegment, dashedSegmentPoints.count == 2 {
+                        ForEach(dashedSegmentPoints) { point in
+                            LineMark(
+                                x: .value("Date", point.date),
+                                y: .value("Distance", point.value)
+                            )
+                            .foregroundStyle(by: .value("Series", "today"))
+                            .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, dash: [4, 4]))
+                        }
+                    }
+
+                    if let selectedPoint, isInteracting {
                         PointMark(
-                            x: .value("Date", point.date),
-                            y: .value("Distance", point.value)
+                            x: .value("Date", selectedPoint.date),
+                            y: .value("Distance", selectedPoint.value)
                         )
                         .symbolSize(55)
                         .foregroundStyle(Color.black)
                     }
                 }
+                .chartLegend(.hidden)
+                .chartForegroundStyleScale([
+                    "pre": Color.black.opacity(0.6),
+                    "post": Color.black,
+                    "solid": Color.black,
+                    "today": Color.black.opacity(0.6)
+                ])
                 .chartXAxis {
                     switch period {
                     case .oneWeek:
@@ -135,7 +183,7 @@ struct StatisticsView: View {
                                 VStack(spacing: 4) {
                                     Text(selectedPoint.displayLabel)
                                         .font(.system(size: 12, weight: .semibold))
-                                    Text("\(String(format: "%.1f", selectedPoint.value)) mi")
+                                    Text(selectedPointValueText(for: selectedPoint, firstWorkoutMonth: firstWorkoutMonth))
                                         .font(.system(size: 12, weight: .bold))
                                 }
                                 .padding(8)
@@ -376,25 +424,36 @@ struct StatisticsView: View {
         Calendar.current.dateInterval(of: .month, for: date)?.start ?? date
     }
 
+    private var firstWorkoutMonthStart: Date? {
+        guard let firstWorkoutDate = store.workouts.map(\.date).min() else { return nil }
+        return startOfMonth(firstWorkoutDate)
+    }
+
+    private func selectedPointValueText(for point: StatPoint, firstWorkoutMonth: Date?) -> String {
+        if (period == .sixMonths || period == .oneYear),
+           let firstWorkoutMonth,
+           point.date < firstWorkoutMonth {
+            return "N/A"
+        }
+        return "\(String(format: "%.1f", point.value)) mi"
+    }
+
     private var dailyAverageCalories: Double {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        guard let firstWorkoutDate = store.workouts.map(\.date).min() else { return 0 }
-        let start = calendar.startOfDay(for: firstWorkoutDate)
-        var days = 0
-        var total = 0.0
-        var date = start
-        while date <= today {
-            total += store.totalCalories(on: date, calendar: calendar)
-            days += 1
-            date = calendar.date(byAdding: .day, value: 1, to: date) ?? today.addingTimeInterval(1)
-        }
+        guard let weekStart = calendar.dateInterval(of: .weekOfYear, for: Date())?.start else { return 0 }
+        let todayStart = calendar.startOfDay(for: Date())
+        let hasWorkoutToday = store.workouts.contains { calendar.isDate($0.date, inSameDayAs: todayStart) }
+        let end = hasWorkoutToday ? (calendar.date(byAdding: .day, value: 1, to: todayStart) ?? todayStart) : todayStart
+        let days = calendar.dateComponents([.day], from: weekStart, to: end).day ?? 0
         guard days > 0 else { return 0 }
-        return total / Double(days)
+        let calories = store.workouts
+            .filter { $0.date >= weekStart && $0.date < end }
+            .reduce(0.0) { $0 + $1.calories }
+        return calories / Double(days)
     }
 
     private var totalCaloriesBurned: Int {
-        Int(store.workouts.reduce(0) { $0 + $1.calories })
+        Int(weeklyWorkouts().reduce(0) { $0 + $1.calories })
     }
 
     private var weeklyHistorySection: some View {
@@ -457,6 +516,57 @@ struct StatisticsView: View {
                             .fill(.white)
                             .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 3)
                     )
+
+//                    let capsuleWidth = (UIScreen.main.bounds.width - 40) / 2
+//                    HStack {
+//                        VStack(alignment: .leading, spacing: 0) {
+//                            Button {
+//                                withAnimation(.easeInOut(duration: 0.25)) {
+//                                    if isExpanded {
+//                                        expandedWeekStart = nil
+//                                    } else {
+//                                        expandedWeekStart = summary.weekStart
+//                                    }
+//                                }
+//                            } label: {
+//                                HStack(spacing: 8) {
+//                                    Text(summary.label)
+//                                        .font(.system(size: 14, weight: .semibold, design: .serif))
+//                                        .foregroundStyle(.black)
+//                                    Spacer()
+//                                    Image(systemName: "chevron.down")
+//                                        .font(.system(size: 12, weight: .semibold))
+//                                        .foregroundStyle(Color.black.opacity(0.65))
+//                                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
+//                                }
+//                                .padding(.horizontal, 14)
+//                                .padding(.vertical, 12)
+//                            }
+//                            .buttonStyle(.plain)
+//
+//                            if isExpanded {
+//                                VStack(alignment: .leading, spacing: 6) {
+//                                    Divider()
+//                                        .overlay(Color.black.opacity(0.08))
+//                                        .padding(.bottom, 4)
+//                                    Text("Workouts: \(summary.sessionCount) sessions")
+//                                    Text("Distance: \(formatMiles(summary.totalDistanceMiles)) mi")
+//                                    Text("Calories: \(Int(summary.totalCalories).formatted()) cal")
+//                                }
+//                                .font(.system(size: 13, weight: .medium, design: .serif))
+//                                .foregroundStyle(Color.black.opacity(0.65))
+//                                .padding(.horizontal, 14)
+//                                .padding(.bottom, 12)
+//                                .transition(.opacity)
+//                            }
+//                        }
+//                        .frame(width: capsuleWidth)
+//                        .background(
+//                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+//                                .fill(.white)
+//                                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 3)
+//                        )
+//                    }
                 }
 
                 if weeklySummaries.count > visibleWeekCount {
