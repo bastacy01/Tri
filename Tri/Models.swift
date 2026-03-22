@@ -122,3 +122,8 @@ struct GoalSnapshot {
     let weeklyBikeGoal: Double
     let weeklyRunGoal: Double
 }
+
+struct GoalHistoryEntry {
+    let effectiveDate: Date
+    let snapshot: GoalSnapshot
+}
