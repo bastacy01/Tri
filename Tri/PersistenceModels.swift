@@ -85,6 +85,35 @@ final class UserProfileEntity {
 }
 
 @Model
+final class GoalHistoryEntity {
+    @Attribute(.unique) var id: UUID
+    var ownerUID: String
+    var effectiveDate: Date
+    var dailyCaloriesGoal: Double
+    var weeklySwimGoal: Double
+    var weeklyBikeGoal: Double
+    var weeklyRunGoal: Double
+
+    init(
+        id: UUID = UUID(),
+        ownerUID: String,
+        effectiveDate: Date,
+        dailyCaloriesGoal: Double,
+        weeklySwimGoal: Double,
+        weeklyBikeGoal: Double,
+        weeklyRunGoal: Double
+    ) {
+        self.id = id
+        self.ownerUID = ownerUID
+        self.effectiveDate = effectiveDate
+        self.dailyCaloriesGoal = dailyCaloriesGoal
+        self.weeklySwimGoal = weeklySwimGoal
+        self.weeklyBikeGoal = weeklyBikeGoal
+        self.weeklyRunGoal = weeklyRunGoal
+    }
+}
+
+@Model
 final class SyncStateEntity {
     @Attribute(.unique) var ownerUID: String
     var healthKitAnchorData: Data?
