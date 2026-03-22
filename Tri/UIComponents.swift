@@ -419,7 +419,7 @@ struct WorkoutGoalSheet: View {
 
             Spacer()
         }
-        .padding(.top, 24)
+        .padding(.top, 34)
     }
 }
 
@@ -428,75 +428,95 @@ struct WorkoutDetailSheet: View {
     let onDelete: () -> Void
 
     var body: some View {
-        VStack(spacing: 18) {
-            HStack(alignment: .center, spacing: 12) {
-                Image(systemName: workout.type.systemImage)
-                    .font(.system(size: 34, weight: .semibold))
-                    .foregroundStyle(Color.black)
+        VStack {
+            VStack(spacing: 18) {
+                HStack(alignment: .center, spacing: 12) {
+                    Image(systemName: workout.type.systemImage)
+                        .font(.system(size: 34, weight: .semibold))
+                        .foregroundStyle(Color.black)
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(workout.type.rawValue)
-                        .font(.system(size: 22, weight: .bold, design: .serif))
-                    Text(formattedDate(workout.date))
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color.black.opacity(0.5))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(workout.type.rawValue)
+                            .font(.system(size: 22, weight: .bold, design: .serif))
+                        Text(formattedDate(workout.date))
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color.black.opacity(0.5))
+                    }
+
+                    Spacer()
                 }
-
-                Spacer()
-            }
-            VStack {
-                Text("Workout Details")
-                    .font(.system(size: 18, weight: .bold, design: .serif))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                HStack(spacing: 16) {
-                    detailBlock(title: "Time", value: workout.durationString)
-                    detailBlock(title: "Distance", value: workout.distanceString)
-                    detailBlock(title: "Calories", value: "\(workout.caloriesString) cal")
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 20) {
+                    detailBlock(title: "Duration", value: workout.durationString, unit: nil, icon: "timer")
+                    detailBlock(title: "Distance", value: valuePart(workout.distanceString), unit: unitPart(workout.distanceString), icon: "point.bottomleft.forward.to.point.topright.scurvepath.fill")
+                    detailBlock(title: "Active Calories", value: "--", unit: nil, icon: "flame.fill")
+                    detailBlock(title: "Total Calories", value: valuePart("\(workout.caloriesString) cal"), unit: unitPart("\(workout.caloriesString) cal"), icon: "flame.fill")
+                    detailBlock(title: "Average Heart Rate", value: "--", unit: nil, icon: "heart.fill")
+                    detailBlock(title: "Average Pace", value: "--", unit: nil, icon: "clock")
                 }
+                .padding(.top, 8)
+                .padding(.leading, 6)
             }
-            .padding(.top, 18)
+            .frame(maxWidth: .infinity, alignment: .top)
+            .padding(.top, 46)
 
-            Spacer()
 
             Button {
                 onDelete()
             } label: {
                 Text("Delete Workout")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Color.white)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 10)
                     .background(
                         Capsule(style: .continuous)
                             .fill(Color.black)
                     )
             }
             .buttonStyle(.plain)
+            .padding(.top, 22)
         }
         .padding(.horizontal, 24)
-        .padding(.top, 24)
     }
 
     private func formattedDate(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "M/d/yy"
+        formatter.dateFormat = "EEEE, MMMM d, yyyy 'at' h:mm a"
         return formatter.string(from: date)
     }
 
-    private func detailBlock(title: String, value: String) -> some View {
-        VStack(spacing: 6) {
-            Text(title)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color.black.opacity(0.5))
-            Text(value)
-                .font(.system(size: 20, weight: .bold, design: .serif))
+    private func detailBlock(title: String, value: String, unit: String?, icon: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.5))
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold, design: .serif))
+                    .foregroundStyle(Color.black.opacity(0.5))
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(value)
+                    .font(.system(size: 18, weight: .bold, design: .serif))
+                if let unit, !unit.isEmpty {
+                    Text(unit)
+                        .font(.system(size: 14, weight: .semibold, design: .serif))
+                        .foregroundStyle(Color.black.opacity(0.5))
+                }
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.black.opacity(0.04))
-        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func valuePart(_ text: String) -> String {
+        let parts = text.split(separator: " ")
+        guard parts.count > 1 else { return text }
+        return parts.dropLast().joined(separator: " ")
+    }
+
+    private func unitPart(_ text: String) -> String? {
+        let parts = text.split(separator: " ")
+        guard parts.count > 1 else { return nil }
+        return String(parts.last ?? "")
     }
 }
