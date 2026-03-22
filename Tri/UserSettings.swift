@@ -39,9 +39,16 @@ final class UserSettings: ObservableObject {
     @Published var streakIncludeRun: Bool = true { didSet { persistProfileIfNeeded() } }
     @Published var healthKitSyncEnabled: Bool = true { didSet { persistProfileIfNeeded() } }
     @Published var userEmail: String = "user@triapp.com" { didSet { persistProfileIfNeeded() } }
+    @Published private(set) var goalHistory: [GoalHistoryEntry] = []
 
     private var repository: UserProfileRepository?
     private var isHydrating = false
+    private var lastGoalSnapshot = GoalSnapshot(
+        caloriesGoal: 1000,
+        weeklySwimGoal: 1000,
+        weeklyBikeGoal: 10,
+        weeklyRunGoal: 5
+    )
 
     var favoriteWorkout: WorkoutType {
         get { WorkoutType(rawValue: favoriteWorkoutRaw) ?? .swim }
@@ -83,10 +90,13 @@ final class UserSettings: ObservableObject {
             }
 
             apply(state)
+            lastGoalSnapshot = goalSnapshot
+            loadGoalHistory(ownerUID: uid, fallbackSnapshot: lastGoalSnapshot)
             persistLegacySnapshot(from: state)
             print("[Tri] UserSettings loaded for uid=\(uid) hasOnboarded=\(state.hasOnboarded) hasActiveSubscription=\(state.hasActiveSubscription)")
         } catch {
             apply(legacySeed)
+            lastGoalSnapshot = goalSnapshot
             print("[Tri] UserSettings load failed for uid=\(uid). Using legacy seed. error=\(error.localizedDescription)")
         }
     }
@@ -98,6 +108,16 @@ final class UserSettings: ObservableObject {
             weeklyBikeGoal: weeklyBikeGoal,
             weeklyRunGoal: weeklyRunGoal
         )
+    }
+
+    func goalSnapshot(for date: Date) -> GoalSnapshot {
+        guard !goalHistory.isEmpty else { return goalSnapshot }
+        let sorted = goalHistory.sorted { $0.effectiveDate < $1.effectiveDate }
+        var chosen = sorted.first?.snapshot ?? goalSnapshot
+        for entry in sorted where entry.effectiveDate <= date {
+            chosen = entry.snapshot
+        }
+        return chosen
     }
 
     private var legacySeed: UserProfileState {
@@ -161,6 +181,60 @@ final class UserSettings: ObservableObject {
         do {
             try repository.save(ownerUID: uid, state: state)
             persistLegacySnapshot(from: state)
+            recordGoalHistoryIfNeeded(ownerUID: uid, repository: repository)
+        } catch {
+            // No-op: keep UI/state responsive.
+        }
+    }
+
+    private func loadGoalHistory(ownerUID: String, fallbackSnapshot: GoalSnapshot) {
+        guard let repository else { return }
+        do {
+            let history = try repository.fetchGoalHistory(ownerUID: ownerUID)
+            if history.isEmpty {
+                let baseline = GoalHistoryEntry(
+                    effectiveDate: Date.distantPast,
+                    snapshot: fallbackSnapshot
+                )
+                try repository.appendGoalHistory(ownerUID: ownerUID, snapshot: baseline.snapshot, effectiveDate: baseline.effectiveDate)
+                goalHistory = [baseline]
+            } else {
+                goalHistory = history
+            }
+        } catch {
+            goalHistory = [GoalHistoryEntry(effectiveDate: Date.distantPast, snapshot: fallbackSnapshot)]
+        }
+    }
+
+    private func recordGoalHistoryIfNeeded(ownerUID: String, repository: UserProfileRepository) {
+        let current = goalSnapshot
+        guard current.caloriesGoal != lastGoalSnapshot.caloriesGoal ||
+              current.weeklySwimGoal != lastGoalSnapshot.weeklySwimGoal ||
+              current.weeklyBikeGoal != lastGoalSnapshot.weeklyBikeGoal ||
+              current.weeklyRunGoal != lastGoalSnapshot.weeklyRunGoal else {
+            return
+        }
+
+        do {
+            if goalHistory.isEmpty {
+                try repository.appendGoalHistory(
+                    ownerUID: ownerUID,
+                    snapshot: lastGoalSnapshot,
+                    effectiveDate: Date.distantPast
+                )
+                goalHistory = [GoalHistoryEntry(effectiveDate: Date.distantPast, snapshot: lastGoalSnapshot)]
+            }
+
+            let now = Date()
+            try repository.appendGoalHistory(ownerUID: ownerUID, snapshot: current, effectiveDate: now)
+            if let lastIndex = goalHistory.indices.last,
+               now.timeIntervalSince(goalHistory[lastIndex].effectiveDate) < 5 {
+                goalHistory[lastIndex] = GoalHistoryEntry(effectiveDate: goalHistory[lastIndex].effectiveDate, snapshot: current)
+            } else {
+                goalHistory.append(GoalHistoryEntry(effectiveDate: now, snapshot: current))
+                goalHistory.sort { $0.effectiveDate < $1.effectiveDate }
+            }
+            lastGoalSnapshot = current
         } catch {
             // No-op: keep UI/state responsive.
         }
