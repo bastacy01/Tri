@@ -82,7 +82,7 @@ struct HomeView: View {
                 workoutPendingDeletion = nil
             }
         } message: {
-            Text("Are you sure you want to delete this workout?")
+            Text("Are you sure you want to delete this workout? This could affect your current streaks!")
         }
     }
 
@@ -203,13 +203,14 @@ struct HomeView: View {
 
     private var caloriesCard: some View {
         let todayCalories = store.totalCalories(on: Date())
-        let progress = settings.dailyCaloriesGoal == 0 ? 0 : todayCalories / settings.dailyCaloriesGoal
+        let todayGoal = settings.goalSnapshot(for: Date()).caloriesGoal
+        let progress = todayGoal == 0 ? 0 : todayCalories / todayGoal
         return HStack {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text("\(Int(todayCalories))")
                         .font(.system(size: 36, weight: .bold))
-                    Text("/ \(Int(settings.dailyCaloriesGoal))")
+                    Text("/ \(Int(todayGoal))")
                         .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(Color.black.opacity(0.45))
                 }
@@ -313,7 +314,8 @@ struct HomeView: View {
             let day = formatter.string(from: date)
             let dayNumber = calendar.component(.day, from: date)
             let calories = store.totalCalories(on: date)
-            let progress = settings.dailyCaloriesGoal == 0 ? 0 : calories / settings.dailyCaloriesGoal
+            let goal = settings.goalSnapshot(for: date).caloriesGoal
+            let progress = goal == 0 ? 0 : calories / goal
             return DayRing(day: day, date: "\(dayNumber)", progress: progress)
         }
     }
@@ -396,14 +398,14 @@ struct HomeView: View {
     }
 
     private func dailyStreakCounts() -> (current: Int, longest: Int) {
-        let goal = settings.dailyCaloriesGoal
-        guard goal > 0 else { return (0, 0) }
         let dates = lastNDates(30)
         let today = Date()
         var current = 0
         var longest = 0
         var running = 0
         for date in dates {
+            let goal = settings.goalSnapshot(for: date).caloriesGoal
+            guard goal > 0 else { continue }
             let calories = store.totalCalories(on: date)
             if calories >= goal {
                 running += 1
@@ -415,6 +417,8 @@ struct HomeView: View {
 
         current = 0
         for date in dates.reversed() {
+            let goal = settings.goalSnapshot(for: date).caloriesGoal
+            guard goal > 0 else { continue }
             let calories = store.totalCalories(on: date)
             if calendar.isDate(date, inSameDayAs: today), calories < goal {
                 // Don't reset current streak just because today is still in progress.
@@ -440,14 +444,28 @@ struct HomeView: View {
     private func isWeekCompleted(weekStart: Date) -> Bool {
         let types = includedTypes
         guard !types.isEmpty else { return false }
+        let currentWeekStart = calendar.dateInterval(of: .weekOfYear, for: Date())?.start
+        let goalDate = (currentWeekStart == weekStart) ? Date() : weekStart
         for type in types {
             let total = store.totalDistance(for: type, inWeekContaining: weekStart)
-            let goal = weeklyGoal(for: type)
+            let goal = weeklyGoal(for: type, on: goalDate)
             if total < goal {
                 return false
             }
         }
         return true
+    }
+
+    private func weeklyGoal(for type: WorkoutType, on date: Date) -> Double {
+        let snapshot = settings.goalSnapshot(for: date)
+        switch type {
+        case .swim:
+            return snapshot.weeklySwimGoal
+        case .bike:
+            return snapshot.weeklyBikeGoal
+        case .run:
+            return snapshot.weeklyRunGoal
+        }
     }
 
     private func lastNWeeks(_ count: Int) -> [Date] {
