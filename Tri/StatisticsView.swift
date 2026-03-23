@@ -41,9 +41,9 @@ struct StatisticsView: View {
                     .font(.system(size: 18, weight: .bold, design: .serif))
 
                 let hasWorkoutToday = store.workouts.contains { Calendar.current.isDateInToday($0.date) }
-                let shouldDashTodaySegment = (period == .oneWeek || period == .oneMonth) && !hasWorkoutToday && chartPoints.count >= 2
-                let dashedSegmentPoints = shouldDashTodaySegment ? Array(chartPoints.suffix(2)) : []
-                let solidLinePoints = shouldDashTodaySegment ? Array(chartPoints.dropLast(1)) : chartPoints
+                let shouldHideTodayPoint = (period == .oneWeek || period == .oneMonth) && !hasWorkoutToday && chartPoints.count >= 2
+                let solidLinePoints = shouldHideTodayPoint ? Array(chartPoints.dropLast(1)) : chartPoints
+                let interactionPoints = shouldHideTodayPoint ? Array(points.dropLast(1)) : points
                 Chart {
                     if isMonthPeriod, let _ = firstWorkoutMonth {
                         ForEach(preDataPoints) { point in
@@ -74,18 +74,8 @@ struct StatisticsView: View {
                         }
                     }
 
-                    if shouldDashTodaySegment, dashedSegmentPoints.count == 2 {
-                        ForEach(dashedSegmentPoints) { point in
-                            LineMark(
-                                x: .value("Date", point.date),
-                                y: .value("Distance", point.value)
-                            )
-                            .foregroundStyle(by: .value("Series", "today"))
-                            .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, dash: [4, 4]))
-                        }
-                    }
-
-                    if let selectedPoint, isInteracting {
+                    if let selectedPoint, isInteracting,
+                       !(shouldHideTodayPoint && Calendar.current.isDateInToday(selectedPoint.date)) {
                         PointMark(
                             x: .value("Date", selectedPoint.date),
                             y: .value("Distance", selectedPoint.value)
@@ -98,8 +88,7 @@ struct StatisticsView: View {
                 .chartForegroundStyleScale([
                     "pre": Color.black.opacity(0.6),
                     "post": Color.black,
-                    "solid": Color.black,
-                    "today": Color.black.opacity(0.6)
+                    "solid": Color.black
                 ])
                 .chartXAxis {
                     switch period {
@@ -107,8 +96,12 @@ struct StatisticsView: View {
                         AxisMarks(values: points.map { $0.date }) { value in
                             AxisGridLine()
                             AxisValueLabel {
-                                Text(axisLabel(for: value.as(Date.self)))
-                                    .offset(x: xAxisLabelOffset(for: .oneWeek))
+                                if shouldHideTodayPoint, isToday(value.as(Date.self)) {
+                                    EmptyView()
+                                } else {
+                                    Text(axisLabel(for: value.as(Date.self)))
+                                        .offset(x: xAxisLabelOffset(for: .oneWeek))
+                                }
                             }
                         }
                     case .oneMonth:
@@ -116,7 +109,8 @@ struct StatisticsView: View {
                         AxisMarks(values: axisDates) { value in
                             AxisGridLine()
                             AxisValueLabel {
-                                if let date = value.as(Date.self), isOneMonthAxisEnd(date, axisDates: axisDates) {
+                                if let date = value.as(Date.self),
+                                   isOneMonthAxisEnd(date, axisDates: axisDates) || (shouldHideTodayPoint && isToday(date)) {
                                     EmptyView()
                                 } else {
                                     Text(axisLabel(for: value.as(Date.self)))
@@ -165,7 +159,7 @@ struct StatisticsView: View {
                                             let plotFrame = geometry[proxy.plotAreaFrame]
                                             let x = value.location.x - plotFrame.origin.x
                                             if let date: Date = proxy.value(atX: x) {
-                                                selectedPoint = closestPoint(to: date, in: points)
+                                                selectedPoint = closestPoint(to: date, in: interactionPoints)
                                             }
                                             isInteracting = true
                                             cancelDismiss()
@@ -177,6 +171,7 @@ struct StatisticsView: View {
                                 )
 
                             if let selectedPoint, isInteracting,
+                               !(shouldHideTodayPoint && Calendar.current.isDateInToday(selectedPoint.date)),
                                let xPosition = proxy.position(forX: selectedPoint.date),
                                let yPosition = proxy.position(forY: selectedPoint.value) {
                                 let plotFrame = geometry[proxy.plotAreaFrame]
@@ -222,7 +217,7 @@ struct StatisticsView: View {
                 cancelDismiss()
             }
 
-            weeklyHistorySection
+//            weeklyHistorySection
 
             Spacer()
         }
@@ -411,6 +406,11 @@ struct StatisticsView: View {
     private func isOneMonthAxisEnd(_ date: Date, axisDates: [Date]) -> Bool {
         guard let end = axisDates.last else { return false }
         return abs(date.timeIntervalSince(end)) < 1
+    }
+
+    private func isToday(_ date: Date?) -> Bool {
+        guard let date else { return false }
+        return Calendar.current.isDateInToday(date)
     }
 
     private func distanceInMiles(_ workout: Workout) -> Double {
