@@ -129,6 +129,8 @@ struct HomeView: View {
                     Text("\(currentDailyStreak)")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Color.black)
+                        .contentTransition(.numericText())
+                        .animation(.easeOut(duration: 0.35), value: currentDailyStreak)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
@@ -210,9 +212,13 @@ struct HomeView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text("\(Int(todayCalories))")
                         .font(.system(size: 36, weight: .bold))
+                        .contentTransition(.numericText())
+                        .animation(.easeOut(duration: 0.4), value: Int(todayCalories))
                     Text("/ \(Int(todayGoal))")
                         .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(Color.black.opacity(0.45))
+                        .contentTransition(.numericText())
+                        .animation(.easeOut(duration: 0.4), value: Int(todayGoal))
                 }
                 Text("Calories Burned")
                     .font(.system(size: 16, weight: .semibold, design: .serif))
