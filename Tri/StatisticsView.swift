@@ -33,17 +33,42 @@ struct StatisticsView: View {
             let points = dataPoints
             let chartPoints = clampedPoints
             let firstWorkoutMonth = firstWorkoutMonthStart
+            let firstWorkoutDay = firstWorkoutDayStart
             let isMonthPeriod = period == .sixMonths || period == .oneYear
+            let isShortPeriod = period == .oneWeek || period == .oneMonth
             let preDataPoints = (isMonthPeriod && firstWorkoutMonth != nil) ? chartPoints.filter { $0.date < firstWorkoutMonth! } : []
             let postDataPoints = (isMonthPeriod && firstWorkoutMonth != nil) ? chartPoints.filter { $0.date >= firstWorkoutMonth! } : chartPoints
+            let shortSplit: (pre: [StatPoint], post: [StatPoint]) = {
+                if isShortPeriod {
+                    if let firstWorkoutDay = firstWorkoutDay {
+                        return (
+                            chartPoints.filter { $0.date < firstWorkoutDay },
+                            chartPoints.filter { $0.date >= firstWorkoutDay }
+                        )
+                    }
+                    return (chartPoints, [])
+                }
+                return ([], chartPoints)
+            }()
+            let preShortPoints = shortSplit.pre
+            let postShortPoints = shortSplit.post
+            let hasWorkoutToday = store.workouts.contains { Calendar.current.isDateInToday($0.date) }
+            let shouldHideTodayPoint = isShortPeriod && !hasWorkoutToday && chartPoints.count >= 2
+            let solidLinePoints = shouldHideTodayPoint ? Array(chartPoints.dropLast(1)) : chartPoints
+            let trimmedPreShortPoints = shouldHideTodayPoint ? preShortPoints.filter { !isToday($0.date) } : preShortPoints
+            let trimmedPostShortPoints = shouldHideTodayPoint ? postShortPoints.filter { !isToday($0.date) } : postShortPoints
+            let bridgeShortPoints: [StatPoint] = {
+                guard let lastPre = trimmedPreShortPoints.last,
+                      let firstPost = trimmedPostShortPoints.first else {
+                    return []
+                }
+                return [lastPre, firstPost]
+            }()
+            let interactionPoints = shouldHideTodayPoint ? points.filter { !isToday($0.date) } : points
             VStack(alignment: .leading, spacing: 12) {
                 Text("Track Progress")
                     .font(.system(size: 18, weight: .bold, design: .serif))
 
-                let hasWorkoutToday = store.workouts.contains { Calendar.current.isDateInToday($0.date) }
-                let shouldHideTodayPoint = (period == .oneWeek || period == .oneMonth) && !hasWorkoutToday && chartPoints.count >= 2
-                let solidLinePoints = shouldHideTodayPoint ? Array(chartPoints.dropLast(1)) : chartPoints
-                let interactionPoints = shouldHideTodayPoint ? Array(points.dropLast(1)) : points
                 Chart {
                     if isMonthPeriod, let _ = firstWorkoutMonth {
                         ForEach(preDataPoints) { point in
@@ -61,6 +86,33 @@ struct StatisticsView: View {
                                 y: .value("Distance", point.value)
                             )
                             .foregroundStyle(Color.black)
+                            .interpolationMethod(.monotone)
+                        }
+                    } else if isShortPeriod {
+                        ForEach(trimmedPreShortPoints) { point in
+                            LineMark(
+                                x: .value("Date", point.date),
+                                y: .value("Distance", point.value)
+                            )
+                            .foregroundStyle(by: .value("Series", "pre"))
+                            .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, dash: [4, 4]))
+                            .interpolationMethod(.monotone)
+                        }
+                        ForEach(trimmedPostShortPoints) { point in
+                            LineMark(
+                                x: .value("Date", point.date),
+                                y: .value("Distance", point.value)
+                            )
+                            .foregroundStyle(by: .value("Series", "solid"))
+                            .interpolationMethod(.monotone)
+                        }
+                        ForEach(bridgeShortPoints) { point in
+                            LineMark(
+                                x: .value("Date", point.date),
+                                y: .value("Distance", point.value)
+                            )
+                            .foregroundStyle(by: .value("Series", "bridge"))
+                            .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, dash: [4, 4]))
                             .interpolationMethod(.monotone)
                         }
                     } else {
@@ -88,7 +140,8 @@ struct StatisticsView: View {
                 .chartForegroundStyleScale([
                     "pre": Color.black.opacity(0.6),
                     "post": Color.black,
-                    "solid": Color.black
+                    "solid": Color.black,
+                    "bridge": Color.black.opacity(0.6)
                 ])
                 .chartXAxis {
                     switch period {
@@ -178,7 +231,7 @@ struct StatisticsView: View {
                                 VStack(spacing: 4) {
                                     Text(selectedPoint.displayLabel)
                                         .font(.system(size: 12, weight: .semibold))
-                                    Text(selectedPointValueText(for: selectedPoint, firstWorkoutMonth: firstWorkoutMonth))
+                                    Text(selectedPointValueText(for: selectedPoint, firstWorkoutMonth: firstWorkoutMonth, firstWorkoutDay: firstWorkoutDay))
                                         .font(.system(size: 12, weight: .bold))
                                 }
                                 .padding(8)
@@ -429,11 +482,22 @@ struct StatisticsView: View {
         return startOfMonth(firstWorkoutDate)
     }
 
-    private func selectedPointValueText(for point: StatPoint, firstWorkoutMonth: Date?) -> String {
+    private var firstWorkoutDayStart: Date? {
+        guard let firstWorkoutDate = store.workouts.map(\.date).min() else { return nil }
+        return Calendar.current.startOfDay(for: firstWorkoutDate)
+    }
+
+    private func selectedPointValueText(for point: StatPoint, firstWorkoutMonth: Date?, firstWorkoutDay: Date?) -> String {
         if (period == .sixMonths || period == .oneYear),
            let firstWorkoutMonth,
            point.date < firstWorkoutMonth {
-            return "N/A"
+            return "n/a"
+        }
+        if period == .oneWeek || period == .oneMonth {
+            guard let firstWorkoutDay else { return "n/a" }
+            if point.date < firstWorkoutDay {
+                return "n/a"
+            }
         }
         return "\(String(format: "%.1f", point.value)) mi"
     }
