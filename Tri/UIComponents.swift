@@ -147,8 +147,15 @@ struct WorkoutCardView: View {
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(card.distance)
-                    .font(.system(size: 20, weight: .bold, design: .serif))
+                let parts = distanceDisplayParts()
+                HStack(spacing: 0) {
+                    Text(parts.value)
+                        .font(.system(size: 20, weight: .bold, design: .serif))
+                        .contentTransition(.numericText())
+                        .animation(.easeOut(duration: 0.4), value: parts.value)
+                    Text(parts.unit)
+                        .font(.system(size: 20, weight: .bold, design: .serif))
+                }
                 Text(card.type.rawValue)
                     .font(.system(size: 16, weight: .semibold, design: .serif))
                     .foregroundStyle(Color.black.opacity(0.6))
@@ -175,6 +182,19 @@ struct WorkoutCardView: View {
             )
         }
         .buttonStyle(.plain)
+    }
+
+    private func distanceDisplayParts() -> (value: String, unit: String) {
+        let rawValue = Double(card.distance.split(separator: " ").first ?? "") ?? 0
+        let unit = card.type.unitLabel
+        if card.type == .swim, rawValue >= 10_000 {
+            let kValue = rawValue / 1000
+            let hasFraction = abs(kValue.rounded() - kValue) > 0.01
+            let valueText = hasFraction ? String(format: "%.1f", kValue) : String(format: "%.0f", kValue)
+            return (valueText, "k \(unit)")
+        }
+        let valueText = rawValue >= 100 ? String(format: "%.0f", rawValue) : String(format: "%.1f", rawValue)
+        return (valueText, " \(unit)")
     }
 }
 
@@ -251,6 +271,8 @@ struct StreaksSheet: View {
 
                 Text("\(currentStreak)")
                     .font(.system(size: 58, weight: .bold, design: .rounded))
+                    .contentTransition(.numericText())
+                    .animation(.easeOut(duration: 0.4), value: currentStreak)
                 
                 Text("day streak")
                     .font(.system(size: 16, weight: .semibold))
@@ -267,6 +289,8 @@ struct StreaksSheet: View {
                     Spacer()
                     Text("\(longestStreak) days")
                         .font(.system(size: 16, weight: .bold))
+                        .contentTransition(.numericText())
+                        .animation(.easeOut(duration: 0.4), value: longestStreak)
                 }
 
                 HStack(spacing: 8) {
@@ -278,6 +302,8 @@ struct StreaksSheet: View {
                     Spacer()
                     Text("\(weeklyStreak) weeks")
                         .font(.system(size: 16, weight: .bold))
+                        .contentTransition(.numericText())
+                        .animation(.easeOut(duration: 0.4), value: weeklyStreak)
                 }
             }
             .padding(.horizontal, 24)
@@ -336,6 +362,14 @@ struct AddWorkoutSheet: View {
             .buttonStyle(.plain)
             .disabled(!canSave)
 
+            if let maxHintText {
+                Text("*\(maxHintText)")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.4))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 2)
+            }
+
             Spacer()
         }
         .padding(24)
@@ -370,9 +404,54 @@ struct AddWorkoutSheet: View {
     }
 
     private var canSave: Bool {
-        !distance.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !duration.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !calories.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let trimmedDistance = distance.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedDuration = duration.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedCalories = calories.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedDistance.isEmpty, !trimmedDuration.isEmpty, !trimmedCalories.isEmpty else {
+            return false
+        }
+
+        let distanceValue = Double(trimmedDistance.filter { "0123456789.".contains($0) }) ?? 0
+        let caloriesValue = Double(trimmedCalories.filter { "0123456789.".contains($0) }) ?? 0
+        let durationValue = parseDuration(trimmedDuration)
+
+        let maxDistance: Double = selectedType == .swim ? 99_999 : 999
+        let maxCalories: Double = 99_999
+        let maxDuration: TimeInterval = 24 * 60 * 60
+
+        return distanceValue > 0 &&
+            caloriesValue > 0 &&
+            durationValue > 0 &&
+            distanceValue <= maxDistance &&
+            caloriesValue <= maxCalories &&
+            durationValue <= maxDuration
+    }
+
+    private var maxHintText: String? {
+        let trimmedDistance = distance.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedDuration = duration.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedCalories = calories.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let distanceValue = Double(trimmedDistance.filter { "0123456789.".contains($0) }) ?? 0
+        let caloriesValue = Double(trimmedCalories.filter { "0123456789.".contains($0) }) ?? 0
+        let durationValue = parseDuration(trimmedDuration)
+
+        let maxDistance: Double = selectedType == .swim ? 99_999 : 999
+        let maxCalories: Double = 99_999
+        let maxDuration: TimeInterval = 24 * 60 * 60
+
+        if distanceValue > maxDistance {
+            return selectedType == .swim
+                ? "Distance max: 99,999 yd"
+                : "Distance max: 999 mi"
+        }
+        if durationValue > maxDuration {
+            return "Duration max: 24h (1,440 min)"
+        }
+        if caloriesValue > maxCalories {
+            return "Calories max: 99,999"
+        }
+        return nil
     }
 }
 
@@ -457,7 +536,7 @@ struct WorkoutDetailSheet: View {
                 .padding(.leading, 6)
             }
             .frame(maxWidth: .infinity, alignment: .top)
-            .padding(.top, 46)
+            .padding(.top, 36)
 
 
             Button {
@@ -474,7 +553,7 @@ struct WorkoutDetailSheet: View {
                     )
             }
             .buttonStyle(.plain)
-            .padding(.top, 22)
+            .padding(.top, 20)
         }
         .padding(.horizontal, 24)
     }
