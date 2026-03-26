@@ -20,6 +20,7 @@ struct ContentView: View {
     @StateObject private var settings = UserSettings()
     @State private var selectedTab: Tab = .home
     @State private var showAddWorkout = false
+    @State private var pendingManualWorkout: Workout?
     @State private var isAuthenticated = Auth.auth().currentUser != nil
     @State private var authStateHandle: AuthStateDidChangeListenerHandle?
     @State private var isAuthTransitioning = false
@@ -122,6 +123,11 @@ struct ContentView: View {
                 customTabMainContent
             }
         }
+        .overlay(alignment: .bottomTrailing) {
+            if selectedTab == .home {
+                addWorkoutOverlayButton
+            }
+        }
     }
 
     private var customTabMainContent: some View {
@@ -140,9 +146,9 @@ struct ContentView: View {
         .overlay(alignment: .bottom) {
             LiquidTabBar(selectedTab: $selectedTab, showAddWorkout: $showAddWorkout)
         }
-        .sheet(isPresented: $showAddWorkout) {
+        .sheet(isPresented: $showAddWorkout, onDismiss: addPendingManualWorkoutIfNeeded) {
             AddWorkoutSheet { workout in
-                store.addManualWorkout(workout)
+                pendingManualWorkout = workout
             }
             .presentationDetents([.large])
 //            .presentationDetents([.height(505)])
@@ -180,31 +186,39 @@ struct ContentView: View {
         .tint(.black)
         .toolbarBackground(Color(white: 0.97), for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
-        .overlay(alignment: .bottomTrailing) {
-            if selectedTab == .home {
-                Button {
-                    showAddWorkout = true
-                } label: {
-                    ZStack {
-                        nativeAddButtonBackground
-                        Image(systemName: "plus")
-                            .font(.system(size: 24, weight: .bold))
-                            .foregroundStyle(Color.black)
-                    }
-                    .frame(width: 58, height: 58)
-                }
-                .buttonStyle(.plain)
-                .padding(.trailing, 20)
-                .padding(.bottom, 66)
-            }
-        }
-        .sheet(isPresented: $showAddWorkout) {
+        .sheet(isPresented: $showAddWorkout, onDismiss: addPendingManualWorkoutIfNeeded) {
             AddWorkoutSheet { workout in
-                store.addManualWorkout(workout)
+                pendingManualWorkout = workout
             }
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
+    }
+
+    private func addPendingManualWorkoutIfNeeded() {
+        guard let workout = pendingManualWorkout else { return }
+        pendingManualWorkout = nil
+        store.addManualWorkout(workout)
+    }
+
+    private var addWorkoutOverlayButton: some View {
+        Button {
+            showAddWorkout = true
+        } label: {
+            ZStack {
+                nativeAddButtonBackground
+                Image(systemName: "plus")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(Color.black)
+            }
+            .frame(width: 58, height: 58)
+            .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .padding(.trailing, useNativeTabBarForTesting ? 20 : 16)
+        .padding(.bottom, useNativeTabBarForTesting ? 66 : 12)
+        .offset(x: useNativeTabBarForTesting ? 0 : -6, y: useNativeTabBarForTesting ? 0 : -54)
+        .zIndex(2)
     }
 
     private func startHealthKitIfEnabled() {
