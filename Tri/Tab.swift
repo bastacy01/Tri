@@ -20,7 +20,7 @@ enum Tab: String, CaseIterable {
         case .calendar:
             return "calendar"
         case .statistics:
-            return "chart.bar.fill"
+            return "chart.xyaxis.line"
         case .profile:
             return "person.fill"
         }
