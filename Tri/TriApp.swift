@@ -27,6 +27,6 @@ struct TriApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(for: [WorkoutEntity.self, UserProfileEntity.self, SyncStateEntity.self])
+        .modelContainer(for: [WorkoutEntity.self, UserProfileEntity.self, GoalHistoryEntity.self, SyncStateEntity.self])
     }
 }
