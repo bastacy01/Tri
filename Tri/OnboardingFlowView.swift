@@ -38,9 +38,17 @@ struct OnboardingFlowView: View {
     @State private var authErrorMessage: String?
     @State private var currentNonce: String?
     @State private var isCompactPaywall = false
+    private let skipOnAppearReset: Bool
     private var isReauthOnly: Bool { settings.hasOnboarded && settings.hasActiveSubscription }
     private var requiresPaywallAfterSignIn: Bool { settings.hasOnboarded && !settings.hasActiveSubscription }
     private var showPaywallOnlyScreen: Bool { requiresPaywallAfterSignIn && hasCompletedSignIn }
+
+    init(startingStep: Int = 0, skipOnAppearReset: Bool = false) {
+        _step = State(initialValue: startingStep)
+        _maxUnlockedStep = State(initialValue: startingStep)
+        _minimumAllowedStep = State(initialValue: 0)
+        self.skipOnAppearReset = skipOnAppearReset
+    }
 
     var body: some View {
         VStack {
@@ -83,11 +91,11 @@ struct OnboardingFlowView: View {
                         advance()
                     } label: {
                         Text("Continue")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.system(size: 16, weight: .semibold, design: .serif))
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
+                            .padding(.vertical, 16)
                             .background(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                RoundedRectangle(cornerRadius: 30, style: .continuous)
                                     .fill(canContinueOnCurrentStep ? Color.black : Color.gray.opacity(0.45))
                             )
                             .foregroundStyle(.white)
@@ -105,9 +113,11 @@ struct OnboardingFlowView: View {
             favorite = settings.favoriteWorkout
             hasCompletedSignIn = Auth.auth().currentUser != nil
             healthChoice = nil
-            step = 0
-            maxUnlockedStep = 0
-            minimumAllowedStep = 0
+            if !skipOnAppearReset {
+                step = 0
+                maxUnlockedStep = 0
+                minimumAllowedStep = 0
+            }
         }
         .onChange(of: step) { _, newValue in
             if requiresPaywallAfterSignIn {
@@ -164,7 +174,7 @@ struct OnboardingFlowView: View {
 
     private var signInStep: some View {
         ZStack {
-            VStack(spacing: 15) {
+            VStack(spacing: 16) {
                 Spacer()
                 VStack(spacing: 5) {
                 Image("Triicon3")
@@ -206,7 +216,7 @@ struct OnboardingFlowView: View {
                     }
                 }
                 .foregroundStyle(Color.black)
-                .frame(height: 50)
+                .frame(height: 55)
                 .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
                 .shadow(color: Color.black.opacity(0.12), radius: 6, x: 0, y: 3)
                 .padding(.horizontal, 40)
@@ -227,7 +237,7 @@ struct OnboardingFlowView: View {
                         .foregroundStyle(Color.white)
                         .frame(maxWidth: .infinity)
                 }
-                .frame(height: 50)
+                .frame(height: 55)
                 .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
                 .padding(.horizontal, 40)
                 .overlay {
@@ -292,7 +302,7 @@ struct OnboardingFlowView: View {
                     Text(" (manual entry only)")
                         .foregroundStyle(Color.black.opacity(0.6))
                 )
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold, design: .serif))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 11)
             }
@@ -731,7 +741,7 @@ private struct GoalStepper: View {
     var body: some View {
         HStack {
             Text(label)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 18, weight: .semibold, design: .serif))
             Spacer()
             Button {
                 value = max(range.lowerBound, value - step)
@@ -759,7 +769,7 @@ private struct GoalStepper: View {
                 }
             )
             Text("\(Int(value))")
-                .font(.system(size: 16, weight: .bold))
+                .font(.system(size: 18, weight: .bold, design: .serif))
                 .contentTransition(.numericText())
                 .frame(width: 60)
             Button {
@@ -824,7 +834,7 @@ private struct GoalStepper: View {
 
 struct OnboardingFlowView_Previews: PreviewProvider {
     static var previews: some View {
-        OnboardingFlowView()
+        OnboardingFlowView(startingStep: 1, skipOnAppearReset: true)
             .environmentObject(UserSettings())
             .environmentObject(WorkoutStore())
     }
