@@ -51,14 +51,12 @@ struct StatisticsView: View {
             }
             .padding(.horizontal, 20)
 
-            let points = dataPoints
-            let chartPoints = clampedPoints
-            let firstWorkoutMonth = firstWorkoutMonthStart
-            let firstWorkoutDay = firstWorkoutDayStart
             let isMonthPeriod = period == .sixMonths || period == .oneYear
             let isShortPeriod = period == .oneWeek || period == .oneMonth
-            let preDataPoints = (isMonthPeriod && firstWorkoutMonth != nil) ? chartPoints.filter { $0.date < firstWorkoutMonth! } : []
-            let postDataPoints = (isMonthPeriod && firstWorkoutMonth != nil) ? chartPoints.filter { $0.date >= firstWorkoutMonth! } : chartPoints
+            let points = dataPoints
+            let chartPoints = clampedPoints
+            let firstWorkoutMonth = isMonthPeriod ? firstVisibleMonthWithData(in: chartPoints) : nil
+            let firstWorkoutDay = firstWorkoutDayStart
             let shortSplit: (pre: [StatPoint], post: [StatPoint]) = {
                 if isShortPeriod {
                     if let firstWorkoutDay = firstWorkoutDay {
@@ -96,8 +94,6 @@ struct StatisticsView: View {
                     chartPoints: chartPoints,
                     isMonthPeriod: isMonthPeriod,
                     isShortPeriod: isShortPeriod,
-                    preDataPoints: preDataPoints,
-                    postDataPoints: postDataPoints,
                     trimmedPreShortPoints: trimmedPreShortPoints,
                     trimmedPostShortPoints: trimmedPostShortPoints,
                     bridgeShortPoints: bridgeShortPoints,
@@ -143,8 +139,6 @@ struct StatisticsView: View {
         chartPoints: [StatPoint],
         isMonthPeriod: Bool,
         isShortPeriod: Bool,
-        preDataPoints: [StatPoint],
-        postDataPoints: [StatPoint],
         trimmedPreShortPoints: [StatPoint],
         trimmedPostShortPoints: [StatPoint],
         bridgeShortPoints: [StatPoint],
@@ -158,8 +152,6 @@ struct StatisticsView: View {
             chartContent(
                 isMonthPeriod: isMonthPeriod,
                 isShortPeriod: isShortPeriod,
-                preDataPoints: preDataPoints,
-                postDataPoints: postDataPoints,
                 trimmedPreShortPoints: trimmedPreShortPoints,
                 trimmedPostShortPoints: trimmedPostShortPoints,
                 bridgeShortPoints: bridgeShortPoints,
@@ -177,12 +169,12 @@ struct StatisticsView: View {
             }
         }
         .chartLegend(.hidden)
-        .chartForegroundStyleScale([
-            "pre": Color.black.opacity(0.6),
-            "post": Color.black,
-            "solid": Color.black,
-            "bridge": Color.black.opacity(0.6)
-        ])
+        .chartForegroundStyleScale { (series: String) -> Color in
+            if series == "post" || series == "solid" {
+                return Color.black
+            }
+            return Color.black.opacity(0.6)
+        }
         .chartXAxis {
             chartXAxis(points: points, shouldHideTodayPoint: shouldHideTodayPoint)
         }
@@ -245,23 +237,15 @@ struct StatisticsView: View {
     private func chartContent(
         isMonthPeriod: Bool,
         isShortPeriod: Bool,
-        preDataPoints: [StatPoint],
-        postDataPoints: [StatPoint],
         trimmedPreShortPoints: [StatPoint],
         trimmedPostShortPoints: [StatPoint],
         bridgeShortPoints: [StatPoint],
         solidLinePoints: [StatPoint]
     ) -> some ChartContent {
         if isMonthPeriod {
-            ForEach(preDataPoints) { point in
+            ForEach(solidLinePoints) { point in
                 LineMark(x: .value("Date", point.date), y: .value("Distance", point.value))
-                    .foregroundStyle(Color.black.opacity(0.6))
-                    .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, dash: [4, 4]))
-                    .interpolationMethod(.monotone)
-            }
-            ForEach(postDataPoints) { point in
-                LineMark(x: .value("Date", point.date), y: .value("Distance", point.value))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(by: .value("Series", "solid"))
                     .interpolationMethod(.monotone)
             }
         } else if isShortPeriod {
@@ -549,9 +533,8 @@ struct StatisticsView: View {
         Calendar.current.dateInterval(of: .month, for: date)?.start ?? date
     }
 
-    private var firstWorkoutMonthStart: Date? {
-        guard let firstWorkoutDate = store.workouts.map(\.date).min() else { return nil }
-        return startOfMonth(firstWorkoutDate)
+    private func firstVisibleMonthWithData(in points: [StatPoint]) -> Date? {
+        points.first { $0.value > 0 }?.date
     }
 
     private var firstWorkoutDayStart: Date? {
