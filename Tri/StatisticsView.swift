@@ -879,11 +879,10 @@ struct StatisticsView: View {
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(.white)
-                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 3)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(isSelected ? Color.black.opacity(0.25) : Color.black.opacity(0.04), lineWidth: 1)
+                .strokeBorder(isSelected ? Color.black.opacity(1) : Color.black.opacity(0.25), lineWidth: 1)
         )
     }
 
@@ -1028,7 +1027,7 @@ enum StatsPeriod: CaseIterable {
 }
 
 struct StatPoint: Identifiable {
-    let id = UUID()
+    var id: Date { date }
     let date: Date
     let value: Double
     let label: String
