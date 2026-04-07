@@ -404,9 +404,16 @@ struct HomeView: View {
     }
 
     private func dailyStreakCounts() -> (current: Int, longest: Int) {
-        let dates = lastNDates(30)
-        let today = Date()
-        var current = 0
+        guard let firstWorkoutDate = store.workouts.map(\.date).min() else {
+            return (0, 0)
+        }
+        let startDay = calendar.startOfDay(for: firstWorkoutDate)
+        let today = calendar.startOfDay(for: Date())
+        let dayCount = calendar.dateComponents([.day], from: startDay, to: today).day ?? 0
+        let dates = (0...dayCount).compactMap { offset in
+            calendar.date(byAdding: .day, value: offset, to: startDay)
+        }
+
         var longest = 0
         var running = 0
         for date in dates {
@@ -421,7 +428,7 @@ struct HomeView: View {
             }
         }
 
-        current = 0
+        var current = 0
         for date in dates.reversed() {
             let goal = settings.goalSnapshot(for: date).caloriesGoal
             guard goal > 0 else { continue }
