@@ -12,6 +12,9 @@ struct CalendarView: View {
     @State private var selectedDate = Date()
     @State private var scope: WorkoutScope = .day
     @State private var isCalendarVisible = true
+    @State private var selectedWorkout: Workout?
+    @State private var workoutPendingDeletion: Workout?
+    @State private var showDeleteWorkoutConfirm = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -105,15 +108,20 @@ struct CalendarView: View {
                             .padding(.vertical, 24)
                     } else {
                         ForEach(workouts) { workout in
-                            RecentWorkoutRow(
-                                workout: RecentWorkout(
-                                    type: workout.type,
-                                    distance: workout.distanceString,
-                                    duration: workout.durationString,
-                                    calories: workout.caloriesString,
-                                    date: formattedDate(workout.date)
+                            Button {
+                                selectedWorkout = workout
+                            } label: {
+                                RecentWorkoutRow(
+                                    workout: RecentWorkout(
+                                        type: workout.type,
+                                        distance: workout.distanceString,
+                                        duration: workout.durationString,
+                                        calories: workout.caloriesString,
+                                        date: formattedDate(workout.date)
+                                    )
                                 )
-                            )
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -121,6 +129,31 @@ struct CalendarView: View {
                 .padding(.bottom, 110)
             }
             .padding(.top, isCalendarVisible ? 0 : 16)
+        }
+        .appBackground()
+        .sheet(item: $selectedWorkout) { workout in
+            WorkoutDetailSheet(workout: workout) {
+                selectedWorkout = nil
+                workoutPendingDeletion = workout
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    showDeleteWorkoutConfirm = true
+                }
+            }
+            .presentationDetents([.fraction(0.4)])
+            .presentationDragIndicator(.visible)
+        }
+        .alert("Delete Workout", isPresented: $showDeleteWorkoutConfirm) {
+            Button("Back", role: .cancel) {
+                workoutPendingDeletion = nil
+            }
+            Button("Delete", role: .destructive) {
+                if let workoutPendingDeletion {
+                    store.deleteWorkout(workoutPendingDeletion)
+                }
+                workoutPendingDeletion = nil
+            }
+        } message: {
+            Text("Are you sure you want to delete this workout? This could affect your current streaks!")
         }
     }
 
