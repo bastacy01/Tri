@@ -44,15 +44,16 @@ struct ProfileView: View {
                 streakSection
 //                    .padding(.top, 8)
                 healthKitSection
+                accountInfoSection
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 120)
         }
-        .scrollDisabled(true)
+        .appBackground()
+        .scrollDisabled(false)
         .sheet(isPresented: $showSettingsSheet) {
             settingsSheet
-//                .presentationDetents([.height(320)])
-                .presentationDetents([.medium])
+                .presentationDetents([.fraction(0.30)])
                 .presentationDragIndicator(.visible)
         }
         .alert("Health Access Required", isPresented: $showHealthKitErrorAlert) {
@@ -74,7 +75,7 @@ struct ProfileView: View {
                 deleteAccount()
             }
         } message: {
-            Text("Are you sure you want to delete your Tri account? This action is permanent and all user data will be erased.")
+            Text("Are you sure you want to delete your Tri account? \nThis action is permanent and all user data will be erased. \nDeleting your account does not cancel your current subscription—please manage it in the App Store.")
         }
         .alert("Delete Account Failed", isPresented: $showDeleteAccountErrorAlert) {
             Button("OK", role: .cancel) {}
@@ -87,7 +88,8 @@ struct ProfileView: View {
                 openManageSubscription()
             }
         } message: {
-            Text("Subscriptions are managed by Apple. You can cancel there, and Tri access continues until your current billing period ends.")
+//            Text("Subscriptions are managed by Apple. You can update or cancel there and Tri access continues until your current billing period ends.")
+            Text("Manage your subscription in the App Store. If you cancel, your access stays active until the end of the billing period.")
         }
     }
 
@@ -97,7 +99,7 @@ struct ProfileView: View {
                 .font(.system(size: 20, weight: .bold, design: .serif))
 
             VStack(spacing: 12) {
-                goalRow(title: "Daily Calories", value: $settings.dailyCaloriesGoal, range: 200...2500, step: 50, suffix: "cal")
+                goalRow(title: "Daily Calories", value: $settings.dailyCaloriesGoal, range: 100...2500, step: 50, suffix: "cal")
                 goalRow(title: "Weekly Swim", value: $settings.weeklySwimGoal, range: 25...20000, step: 25, suffix: "yd")
                 goalRow(title: "Weekly Bike", value: $settings.weeklyBikeGoal, range: 1...300, step: 1, suffix: "mi")
                 goalRow(title: "Weekly Run", value: $settings.weeklyRunGoal, range: 1...100, step: 1, suffix: "mi")
@@ -156,128 +158,136 @@ struct ProfileView: View {
     }
 
     private var settingsSheet: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 26) {
             Text("Settings")
                 .font(.system(size: 24, weight: .bold, design: .serif))
 
-            HStack(spacing: 10) {
-                Image(systemName: "envelope")
-                    .font(.system(size: 15, weight: .semibold))
-                Text("Email: \(settings.userEmail)")
-                    .font(.system(size: 15, weight: .semibold))
-                Spacer()
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 10)
-            .padding(.horizontal, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.white)
-                    .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
-            )
-
-            HStack(spacing: 10) {
-                Image(systemName: "creditcard")
-                    .font(.system(size: 15, weight: .semibold))
-                Text("Plan: \(subscriptionPlan)")
-                    .font(.system(size: 15, weight: .semibold))
-                Spacer()
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 10)
-            .padding(.horizontal, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.white)
-                    .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
-            )
-
-            if let privacyURL = URL(string: "https://example.com/privacy-policy") {
-                Link(destination: privacyURL) {
-                    HStack {
-                        Image(systemName: "hand.raised")
-                        Text("Privacy Policy")
-                            .font(.system(size: 16, weight: .semibold))
-                        Spacer()
-                        Image(systemName: "arrow.up.right")
-                            .font(.system(size: 14, weight: .semibold))
+            VStack(spacing: 16) {
+                Button {
+                    showSettingsSheet = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        showLogoutConfirm = true
                     }
-                    .foregroundStyle(Color.black)
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 12)
+                } label: {
+                    HStack {
+                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                        Text("Log Out")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
                     .background(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .fill(Color.white)
                             .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
                     )
                 }
-            }
+                .foregroundStyle(Color.black)
 
-            Spacer()
+                Button {
+                    showCancelSubscriptionConfirm = true
+                } label: {
+                    HStack {
+                        Image(systemName: "creditcard")
+                        Text("Manage Subscription")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.white)
+                            .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+                    )
+                }
+                .foregroundStyle(Color.black)
 
-            Button {
-                showSettingsSheet = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    showLogoutConfirm = true
+                Button {
+                    showSettingsSheet = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        showDeleteAccountConfirm = true
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "trash")
+                        Text("Delete Account")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.white)
+                            .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+                    )
                 }
-            } label: {
-                HStack {
-                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                    Text("Log Out")
-                        .font(.system(size: 16, weight: .semibold))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.white)
-                        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
-                )
+                .foregroundStyle(Color.red)
             }
-            .foregroundStyle(Color.black)
-
-            Button {
-                showCancelSubscriptionConfirm = true
-            } label: {
-                HStack {
-                    Image(systemName: "xmark.circle")
-                    Text("Cancel Subscription")
-                        .font(.system(size: 16, weight: .semibold))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.white)
-                        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
-                )
-            }
-            .foregroundStyle(Color.red)
-
-            Button {
-                showSettingsSheet = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    showDeleteAccountConfirm = true
-                }
-            } label: {
-                HStack {
-                    Image(systemName: "trash")
-                    Text("Delete Account")
-                        .font(.system(size: 16, weight: .semibold))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.white)
-                        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
-                )
-            }
-            .foregroundStyle(Color.red)
         }
         .padding(.horizontal, 20)
         .padding(.top, 20)
-        .padding(.bottom, 24)
+    }
+
+    private var accountInfoSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Account")
+                .font(.system(size: 20, weight: .bold, design: .serif))
+
+            VStack(spacing: 12) {
+                HStack(spacing: 10) {
+                    Image(systemName: "envelope")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text("Email: \(settings.userEmail)")
+                        .font(.system(size: 15, weight: .semibold))
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 10)
+                .padding(.horizontal, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.white)
+                        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+                )
+
+                HStack(spacing: 10) {
+                    Image(systemName: "creditcard")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text("Plan: \(subscriptionPlan)")
+                        .font(.system(size: 15, weight: .semibold))
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 10)
+                .padding(.horizontal, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.white)
+                        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+                )
+
+                if let privacyURL = URL(string: "https://example.com/privacy-policy") {
+                    Link(destination: privacyURL) {
+                        HStack {
+                            Image(systemName: "hand.raised")
+                            Text("Privacy Policy")
+                                .font(.system(size: 16, weight: .semibold))
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 14, weight: .semibold))
+                        }
+                        .foregroundStyle(Color.black)
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color.white)
+                                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+                        )
+                    }
+                }
+            }
+        }
     }
 
     private func compactToggle(label: String, isOn: Binding<Bool>) -> some View {
