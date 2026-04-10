@@ -18,7 +18,8 @@ struct StatisticsView: View {
     @State private var selectedHistoryStart: Date?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Statistics")
                     .font(.system(size: 26, weight: .bold, design: .serif))
@@ -125,10 +126,13 @@ struct StatisticsView: View {
                 selectedHistoryStart = nil
             }
 
-             historySection
+                historySection
 
-            Spacer()
+                Spacer()
+            }
+            .padding(.bottom, 120)
         }
+        .appBackground()
     }
 
     // MARK: - Chart
@@ -867,7 +871,7 @@ struct StatisticsView: View {
             }
 
             Text("\(formatMiles(slice.totalDistanceMiles)) mi")
-                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .font(.system(size: 14, weight: .bold, design: .serif))
                 .foregroundStyle(Color.black)
 
             Text("\(slice.sessionCount) workouts")
@@ -882,7 +886,7 @@ struct StatisticsView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(isSelected ? Color.black.opacity(1) : Color.black.opacity(0.25), lineWidth: 1)
+                .strokeBorder(isSelected ? Color.black.opacity(1) : Color.black.opacity(0.1), lineWidth: 1)
         )
     }
 
