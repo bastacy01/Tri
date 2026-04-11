@@ -18,31 +18,15 @@ struct CalendarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Calendar")
-                    .font(.system(size: 26, weight: .bold, design: .serif))
-
-                Spacer()
-
-                Button {
+            SectionHeader(
+                title: "Calendar",
+                buttonSystemName: isCalendarVisible ? "calendar.badge.minus" : "calendar.badge.plus",
+                buttonAction: {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                         isCalendarVisible.toggle()
                     }
-                } label: {
-                    Image(systemName: isCalendarVisible ? "calendar.badge.minus" : "calendar.badge.plus")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(Color.black)
-                        .frame(width: 36, height: 36)
-//                        .background(
-//                            Circle()
-//                                .fill(Color.white)
-//                                .shadow(color: Color.black.opacity(0.08), radius: 6, x: 0, y: 3)
-//                        )
                 }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
+            )
 
             if isCalendarVisible {
                 DatePicker(

@@ -25,20 +25,12 @@ struct ProfileView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 20) {
-                HStack {
-                    Text("Profile")
-                        .font(.system(size: 26, weight: .bold, design: .serif))
-                    Spacer()
-                    Button {
-                        showSettingsSheet = true
-                    } label: {
-                        Image(systemName: "gearshape")
-                            .font(.system(size: 20, weight: .regular))
-                            .foregroundStyle(Color.black)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.top, 12)
+                SectionHeader(
+                    title: "Profile",
+                    buttonSystemName: "gearshape",
+                    buttonAction: { showSettingsSheet = true },
+                    includeHorizontalPadding: false
+                )
 
                 goalsSection
                 streakSection

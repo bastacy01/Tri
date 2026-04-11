@@ -20,24 +20,15 @@ struct StatisticsView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Statistics")
-                    .font(.system(size: 26, weight: .bold, design: .serif))
-                Spacer()
-                Button {
+            SectionHeader(
+                title: "Statistics",
+                buttonSystemName: "lasso.badge.sparkles",
+                buttonAction: {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         showSummary.toggle()
                     }
-                } label: {
-                    Image(systemName: "lasso.badge.sparkles")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(Color.black)
-                        .padding(6)
                 }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
+            )
             
             if showSummary {
                 summaryText
