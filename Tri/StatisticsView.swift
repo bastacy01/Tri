@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Charts
+import Shimmer
 
 struct StatisticsView: View {
     @EnvironmentObject private var store: WorkoutStore
@@ -16,6 +17,7 @@ struct StatisticsView: View {
     @State private var dismissTask: DispatchWorkItem?
     @State private var showSummary = false
     @State private var selectedHistoryStart: Date?
+    private let useRevealSummaryPreview = true
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -117,7 +119,7 @@ struct StatisticsView: View {
                 selectedHistoryStart = nil
             }
 
-                historySection
+                historyTimelineSection
 
                 Spacer()
             }
@@ -554,56 +556,106 @@ struct StatisticsView: View {
 
     // MARK: - Summary Text
 
-    private var summaryText: some View {
-        let todayWorkouts = store.workouts
+    private var todayWorkoutsForSummary: [Workout] {
+        store.workouts
             .filter { Calendar.current.isDateInToday($0.date) }
             .sorted { $0.date > $1.date }
+    }
+
+    private var summaryRevealKey: String {
+        let ids = todayWorkoutsForSummary.map { $0.id.uuidString }.joined(separator: "|")
+        return "\(showSummary)-\(ids)"
+    }
+
+    private var summaryPlainText: String {
+        let workouts = todayWorkoutsForSummary
+        guard !workouts.isEmpty else {
+            return "\(greetingText), you haven't logged a workout yet today. Add one to see your stats summary."
+        }
+
+        let totalCalories = Int(workouts.reduce(0.0) { $0 + $1.calories })
+        let totalMinutes = Int(workouts.reduce(0.0) { $0 + $1.duration } / 60.0)
+        let duration = formattedWorkoutDuration(minutes: totalMinutes)
+        let recent = Array(workouts.prefix(2))
+        let details = recent.map { "\($0.distanceString) \($0.type.rawValue.lowercased())" }
+        let moreCount = max(0, workouts.count - recent.count)
+
+        let workoutPhrase: String = {
+            switch details.count {
+            case 0:
+                return "your workouts"
+            case 1:
+                return details[0]
+            default:
+                if moreCount > 0 {
+                    return "\(details[0]), \(details[1]), and \(moreCount) more"
+                }
+                return "\(details[0]) and \(details[1])"
+            }
+        }()
+
+        return "\(greetingText), you've burned \(totalCalories) calories today. Your recent workouts include \(workoutPhrase). Total workout time of \(duration)."
+    }
+
+    private var summaryBaseText: Text {
+        let todayWorkouts = todayWorkoutsForSummary
         let totalCalories = todayWorkouts.reduce(0.0) { $0 + $1.calories }
         let totalMinutes = Int(todayWorkouts.reduce(0.0) { $0 + $1.duration } / 60.0)
         let formattedDuration = formattedWorkoutDuration(minutes: totalMinutes)
 
-        let summaryBase: Text = {
-            if todayWorkouts.isEmpty {
-                return Text("\(greetingText), you haven't logged a workout yet today. Add one to see your stats summary.")
-                    .foregroundStyle(Color.black.opacity(0.5))
+        if todayWorkouts.isEmpty {
+            return Text("\(greetingText), you haven't logged a workout yet today. Add one to see your stats summary.")
+                .foregroundStyle(Color.black.opacity(0.5))
+        }
+
+        let recent = Array(todayWorkouts.prefix(2))
+        let moreCount = max(0, todayWorkouts.count - recent.count)
+        let workoutText = workoutSummaryText(for: recent, moreCount: moreCount)
+        return concatText([
+            Text("\(greetingText), you've burned ")
+                .foregroundStyle(Color.black.opacity(0.5)),
+            Text(Image(systemName: "flame.fill"))
+                .foregroundStyle(Color.black),
+            Text(" \(Int(totalCalories))")
+                .foregroundStyle(Color.black)
+                .fontWeight(.bold),
+            Text(" calories")
+                .foregroundStyle(Color.black)
+                .fontWeight(.bold),
+            Text(" today. ")
+                .foregroundStyle(Color.black.opacity(0.5)),
+            Text("Your recent workouts include ")
+                .foregroundStyle(Color.black.opacity(0.5)),
+            workoutText,
+            Text(". Total workout time of ")
+                .foregroundStyle(Color.black.opacity(0.5)),
+            Text(formattedDuration)
+                .foregroundStyle(Color.black)
+                .fontWeight(.bold),
+            Text(".")
+                .foregroundStyle(Color.black.opacity(0.5))
+        ])
+    }
+
+    private var summaryText: some View {
+        Group {
+            if useRevealSummaryPreview {
+                RevealText(
+                    content: summaryBaseText,
+                    characterCount: summaryPlainText.count,
+                    speed: 0.010,
+                    font: .system(size: 15, weight: .semibold, design: .serif),
+                    triggerKey: summaryRevealKey
+                )
+            } else {
+                summaryBaseText
+                    .font(.system(size: 15, weight: .semibold, design: .serif))
+                    .lineSpacing(6)
+                    .frame(maxWidth: 340, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .multilineTextAlignment(.leading)
             }
-
-            let recent = Array(todayWorkouts.prefix(2))
-            let moreCount = max(0, todayWorkouts.count - recent.count)
-            let workoutText = workoutSummaryText(for: recent, moreCount: moreCount)
-            let parts: [Text] = [
-                Text("\(greetingText), you've burned ")
-                    .foregroundStyle(Color.black.opacity(0.5)),
-                Text(Image(systemName: "flame.fill"))
-                    .foregroundStyle(Color.black),
-                Text(" \(Int(totalCalories))")
-                    .foregroundStyle(Color.black)
-                    .fontWeight(.bold),
-                Text(" calories")
-                    .foregroundStyle(Color.black)
-                    .fontWeight(.bold),
-                Text(" today. ")
-                    .foregroundStyle(Color.black.opacity(0.5)),
-                Text("Your recent workouts include ")
-                    .foregroundStyle(Color.black.opacity(0.5)),
-                workoutText,
-                Text(". Total workout time of ")
-                    .foregroundStyle(Color.black.opacity(0.5)),
-                Text(formattedDuration)
-                    .foregroundStyle(Color.black)
-                    .fontWeight(.bold),
-                Text(".")
-                    .foregroundStyle(Color.black.opacity(0.5))
-            ]
-            return concatText(parts)
-        }()
-
-        return summaryBase
-            .font(.system(size: 15, weight: .semibold, design: .serif))
-            .lineSpacing(6)
-            .frame(maxWidth: 340, alignment: .leading)
-            .frame(maxWidth: .infinity, alignment: .center)
-            .multilineTextAlignment(.leading)
+        }
     }
 
     private func concatText(_ parts: [Text]) -> Text {
@@ -734,14 +786,371 @@ struct StatisticsView: View {
                 }
 
                 if let selected = selectedHistorySlice(from: slices) {
-                    Text(selected.detailLabel)
-                        .font(.system(size: 13, weight: .medium, design: .serif))
-                        .foregroundStyle(Color.black.opacity(0.65))
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    historyMetricStack(for: selected)
                 }
             }
         }
         .padding(.horizontal, 20)
+    }
+
+    private var historyRowsSection: some View {
+        let slices = historySlices
+
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("History")
+                .font(.system(size: 18, weight: .bold, design: .serif))
+
+            if slices.isEmpty {
+                Text("No history yet")
+                    .font(.system(size: 14, weight: .semibold, design: .serif))
+                    .foregroundStyle(Color.black.opacity(0.5))
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 10)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(slices) { slice in
+                        historyRow(slice: slice)
+                        if slice.id != slices.last?.id {
+                            Divider()
+                                .overlay(Color.black.opacity(0.08))
+                        }
+                    }
+                }
+                .padding(.horizontal, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(.white.opacity(0.35))
+                )
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private var historyTimelineSection: some View {
+        let slices = historySlices
+        let displayedSlices = Array(slices.reversed())
+        let activeSelection = selectedHistoryStart ?? slices.last?.start
+        let selected = slices.first(where: { $0.start == activeSelection }) ?? slices.last
+
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("History")
+                .font(.system(size: 18, weight: .bold, design: .serif))
+
+            if let selected {
+                HStack(spacing: 10) {
+                    historySummaryCard(
+                        number: formatMiles(selected.totalDistanceMiles),
+                        suffix: " mi",
+                        label: "distance"
+                    )
+                    historySummaryCard(
+                        number: "\(selected.sessionCount)",
+                        suffix: nil,
+                        label: selected.sessionCount == 1 ? "workout" : "workouts"
+                    )
+                    historySummaryCard(
+                        number: "\(Int(selected.totalCalories).formatted())",
+                        suffix: nil,
+                        label: "calories"
+                    )
+                }
+                .animation(.easeInOut(duration: 0.25), value: selected.id)
+                .animation(.easeInOut(duration: 0.25), value: period)
+            }
+
+            if slices.isEmpty {
+                Text("No history yet")
+                    .font(.system(size: 14, weight: .semibold, design: .serif))
+                    .foregroundStyle(Color.black.opacity(0.5))
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 10)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(displayedSlices) { slice in
+                        historyTimelineDetailRow(slice: slice, isSelected: slice.start == selected?.start)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    selectedHistoryStart = slice.start
+                                }
+                            }
+                        if slice.id != displayedSlices.last?.id {
+                            Divider()
+                                .overlay(Color.black.opacity(0.08))
+                        }
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private func historySummaryCard(number: String, suffix: String?, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(number)
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.black)
+                    .contentTransition(.numericText())
+                if let suffix {
+                    Text(suffix)
+                        .font(.system(size: 14, weight: .bold, design: .serif))
+                        .foregroundStyle(Color.black.opacity(0.9))
+                }
+            }
+            Text(label)
+                .font(.system(size: 11, weight: .semibold, design: .serif))
+                .foregroundStyle(Color.black.opacity(0.55))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.white)
+                .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 2)
+        )
+    }
+
+    private func historyTimelineDetailRow(slice: HistorySlice, isSelected: Bool) -> some View {
+        let leading = timelineLeadingLabel(for: slice)
+        let hasWorkout = slice.sessionCount > 0
+        let totalMinutes = max(0, Int(slice.workouts.reduce(0.0) { $0 + $1.duration } / 60.0))
+
+        return HStack(alignment: .top, spacing: 10) {
+            if period == .oneMonth {
+                oneMonthTimelineLabel(for: slice)
+                    .frame(width: 52, alignment: .leading)
+            } else {
+                VStack(spacing: 0) {
+                    Text(leading.top)
+                        .font(.system(size: 11, weight: .semibold, design: .serif))
+                        .foregroundStyle(Color.black.opacity(0.65))
+                    Text(leading.bottom)
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.black)
+                }
+                .frame(width: 36)
+            }
+
+            VStack(spacing: 4) {
+                Circle()
+                    .fill(hasWorkout ? Color.black.opacity(0.75) : Color.black.opacity(0.2))
+                    .frame(width: 8, height: 8)
+                Rectangle()
+                    .fill(Color.black.opacity(0.12))
+                    .frame(width: 1, height: 34)
+            }
+            .frame(width: 8)
+
+            VStack(alignment: .leading, spacing: 6) {
+                if hasWorkout {
+                    Text(timelinePrimaryTitle(for: slice))
+                        .font(.system(size: 14, weight: .bold, design: .serif))
+                        .foregroundStyle(Color.black)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.9)
+
+                    HStack(spacing: 6) {
+                        timelineChip(text: "\(Int(slice.totalCalories).formatted()) cal", systemImage: "flame.fill")
+                        timelineChip(text: "\(max(1, totalMinutes)) min", systemImage: "clock")
+                    }
+                } else {
+                    Text("No workouts")
+                        .font(.system(size: 14, weight: .semibold, design: .serif))
+                        .foregroundStyle(Color.black.opacity(0.45))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(isSelected ? Color.black.opacity(0.03) : .clear)
+        )
+        .animation(.easeInOut(duration: 0.2), value: slice.id)
+    }
+
+    private func oneMonthTimelineLabel(for slice: HistorySlice) -> some View {
+        let calendar = Calendar.current
+        let endDate = calendar.date(byAdding: .day, value: -1, to: slice.end) ?? slice.end
+        let dayStart = calendar.component(.day, from: slice.start)
+        let dayEnd = calendar.component(.day, from: endDate)
+
+        let monthFormatter = DateFormatter()
+        monthFormatter.dateFormat = "MMM"
+        let monthStart = monthFormatter.string(from: slice.start)
+        let monthEnd = monthFormatter.string(from: endDate)
+
+        let monthText = monthStart == monthEnd ? monthStart : "\(monthStart)-\(monthEnd)"
+        let dayRangeText = "\(dayStart)-\(dayEnd)"
+
+        return VStack(alignment: .center, spacing: 0) {
+            Text(monthText)
+                .font(.system(size: 11, weight: .semibold, design: .serif))
+                .foregroundStyle(Color.black.opacity(0.65))
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            Text(dayRangeText)
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundStyle(Color.black)
+                .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.85)
+    }
+
+    private func timelineChip(text: String, systemImage: String? = nil) -> some View {
+        HStack(spacing: 5) {
+            if let systemImage {
+                Image(systemName: systemImage)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.75))
+            }
+            Text(text)
+                .font(.system(size: 11, weight: .semibold, design: .serif))
+                .foregroundStyle(Color.black.opacity(0.7))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(
+            Capsule()
+                .fill(Color.black.opacity(0.05))
+        )
+    }
+
+    private func timelineWorkoutDistanceText(for workout: Workout) -> String {
+        if workout.type == .swim {
+            let yards = workout.distance >= 100 ? String(format: "%.0f", workout.distance) : String(format: "%.1f", workout.distance)
+            return "\(yards) yds"
+        }
+        return "\(formatMiles(distanceInMiles(workout))) mi"
+    }
+
+    private func timelinePrimaryTitle(for slice: HistorySlice) -> String {
+        if period == .oneWeek {
+            return oneWeekWorkoutSummary(for: slice.workouts)
+        }
+        return "\(slice.sessionCount) workouts · \(formatMiles(slice.totalDistanceMiles)) mi"
+    }
+
+    private func oneWeekWorkoutSummary(for workouts: [Workout]) -> String {
+        let ordered = workouts.sorted { $0.date < $1.date }
+        guard !ordered.isEmpty else { return "No workouts" }
+
+        let summaryParts = ordered.prefix(2).map { workout in
+            "\(workout.type.rawValue) \(timelineWorkoutDistanceText(for: workout))"
+        }
+
+        var summary = summaryParts.joined(separator: " + ")
+        let remaining = max(0, ordered.count - summaryParts.count)
+        if remaining > 0 {
+            summary += " + \(remaining) more"
+        }
+        return summary
+    }
+
+    private func timelineLeadingLabel(for slice: HistorySlice) -> (top: String, bottom: String) {
+        let calendar = Calendar.current
+        switch period {
+        case .oneWeek:
+            return (timelineDayShort(for: slice.start), timelineDayNumber(for: slice.start))
+        case .oneMonth:
+            return ("", "")
+        case .sixMonths:
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MMM"
+            let shortYear = String(format: "%02d", calendar.component(.year, from: slice.start) % 100)
+            return (formatter.string(from: slice.start), "\(shortYear)'")
+        case .oneYear:
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MMM"
+            let shortYear = String(format: "%02d", calendar.component(.year, from: slice.start) % 100)
+            return (formatter.string(from: slice.start), "\(shortYear)'")
+        }
+    }
+
+    private func timelineDayShort(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE"
+        return formatter.string(from: date)
+    }
+
+    private func timelineDayNumber(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "d"
+        return formatter.string(from: date)
+    }
+
+    private func historyRow(slice: HistorySlice) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(historyRowPrimaryLabel(for: slice))
+                .font(.system(size: 11, weight: .semibold, design: .serif))
+                .foregroundStyle(Color.black)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text("\(slice.sessionCount) workouts")
+                .font(.system(size: 11, weight: .semibold, design: .serif))
+                .foregroundStyle(Color.black.opacity(0.55))
+                .lineLimit(1)
+                .contentTransition(.numericText())
+                .frame(width: 84, alignment: .trailing)
+
+            Text("\(formatMiles(slice.totalDistanceMiles)) mi")
+                .font(.system(size: 11, weight: .bold, design: .serif))
+                .foregroundStyle(Color.black)
+                .lineLimit(1)
+                .contentTransition(.numericText())
+                .frame(width: 56, alignment: .trailing)
+
+            Text("\(Int(slice.totalCalories).formatted()) cal")
+                .font(.system(size: 11, weight: .bold, design: .serif))
+                .foregroundStyle(Color.black)
+                .lineLimit(1)
+                .contentTransition(.numericText())
+                .frame(width: 70, alignment: .trailing)
+        }
+        .padding(.vertical, 12)
+        .animation(.easeInOut(duration: 0.2), value: slice.id)
+    }
+
+    private func historyRowPrimaryLabel(for slice: HistorySlice) -> String {
+        if period == .oneWeek {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "EEEE, MMMM d"
+            return formatter.string(from: slice.start)
+        }
+        return slice.label
+    }
+
+    @ViewBuilder
+    private func historyMetricStack(for slice: HistorySlice) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            historyMetricRow(value: "\(formatMiles(slice.totalDistanceMiles)) mi", label: "Distance")
+            historyMetricRow(value: "\(slice.sessionCount)", label: "Workouts")
+            historyMetricRow(value: "\(Int(slice.totalCalories).formatted()) cal", label: "Calories")
+        }
+        .padding(.top, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .animation(.easeInOut(duration: 0.2), value: slice.id)
+    }
+
+    private func historyMetricRow(value: String, label: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(value)
+                .font(.system(size: 22, weight: .bold, design: .serif))
+                .foregroundStyle(Color.black)
+                .contentTransition(.numericText())
+
+            Text(label)
+                .font(.system(size: 14, weight: .semibold, design: .serif))
+                .foregroundStyle(Color.black.opacity(0.5))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var historyTableSection: some View {
@@ -813,11 +1222,11 @@ struct StatisticsView: View {
                 return historySlice(start: interval.start, end: interval.end, label: monthLabel(for: interval.start))
             }
         case .oneYear:
-            guard let start = calendar.date(byAdding: .month, value: -9, to: startOfQuarter(now)) else { return [] }
-            return (0..<4).compactMap { offset in
-                let quarterStart = calendar.date(byAdding: .month, value: offset * 3, to: start) ?? start
-                let quarterEnd = calendar.date(byAdding: .month, value: 3, to: quarterStart) ?? quarterStart
-                return historySlice(start: quarterStart, end: quarterEnd, label: quarterLabel(for: quarterStart))
+            guard let start = calendar.date(byAdding: .month, value: -11, to: startOfMonth(now)) else { return [] }
+            return (0..<12).compactMap { offset in
+                let monthStart = calendar.date(byAdding: .month, value: offset, to: start) ?? start
+                guard let interval = calendar.dateInterval(of: .month, for: monthStart) else { return nil }
+                return historySlice(start: interval.start, end: interval.end, label: monthLabel(for: interval.start))
             }
         }
     }
@@ -830,7 +1239,9 @@ struct StatisticsView: View {
     }
 
     private func historySlice(start: Date, end: Date, label: String) -> HistorySlice {
-        let workouts = store.workouts.filter { $0.date >= start && $0.date < end }
+        let workouts = store.workouts
+            .filter { $0.date >= start && $0.date < end }
+            .sorted { $0.date < $1.date }
         let totalDistanceMiles = workouts.reduce(0.0) { $0 + distanceInMiles($1) }
         let totalCalories = workouts.reduce(0.0) { $0 + $1.calories }
         return HistorySlice(
@@ -839,7 +1250,8 @@ struct StatisticsView: View {
             label: label,
             sessionCount: workouts.count,
             totalDistanceMiles: totalDistanceMiles,
-            totalCalories: totalCalories
+            totalCalories: totalCalories,
+            workouts: workouts
         )
     }
 
@@ -941,24 +1353,6 @@ struct StatisticsView: View {
         return "\(startLabel)-\(endLabel)"
     }
 
-    private func startOfQuarter(_ date: Date) -> Date {
-        let calendar = Calendar.current
-        let month = calendar.component(.month, from: date)
-        let quarter = (month - 1) / 3
-        let quarterMonth = quarter * 3 + 1
-        var components = calendar.dateComponents([.year], from: date)
-        components.month = quarterMonth
-        components.day = 1
-        return calendar.date(from: components) ?? date
-    }
-
-    private func quarterLabel(for start: Date) -> String {
-        let calendar = Calendar.current
-        let month = calendar.component(.month, from: start)
-        let quarter = (month - 1) / 3 + 1
-        return "Q\(quarter)"
-    }
-
     // MARK: - Dismiss Helpers
 
     private func scheduleDismiss() {
@@ -999,10 +1393,7 @@ private struct HistorySlice: Identifiable {
     let sessionCount: Int
     let totalDistanceMiles: Double
     let totalCalories: Double
-
-    var detailLabel: String {
-        "Distance: \(String(format: "%.1f", totalDistanceMiles)) mi | Workouts: \(sessionCount) | Calories: \(Int(totalCalories).formatted()) cal"
-    }
+    let workouts: [Workout]
 }
 
 enum StatsPeriod: CaseIterable {
