@@ -831,30 +831,33 @@ struct StatisticsView: View {
         let displayedSlices = Array(slices.reversed())
         let activeSelection = selectedHistoryStart ?? slices.last?.start
         let selected = slices.first(where: { $0.start == activeSelection }) ?? slices.last
+        let periodTotals = historyPeriodTotals(from: slices)
 
         return VStack(alignment: .leading, spacing: 12) {
             Text("History")
                 .font(.system(size: 18, weight: .bold, design: .serif))
 
-            if let selected {
+            if !slices.isEmpty {
                 HStack(spacing: 10) {
                     historySummaryCard(
-                        number: formatMiles(selected.totalDistanceMiles),
+                        number: formatMiles(periodTotals.distanceMiles),
                         suffix: " mi",
                         label: "distance"
                     )
                     historySummaryCard(
-                        number: "\(selected.sessionCount)",
+                        number: "\(periodTotals.workouts)",
                         suffix: nil,
-                        label: selected.sessionCount == 1 ? "workout" : "workouts"
+                        label: periodTotals.workouts == 1 ? "workout" : "workouts"
                     )
                     historySummaryCard(
-                        number: "\(Int(selected.totalCalories).formatted())",
+                        number: "\(Int(periodTotals.calories).formatted())",
                         suffix: nil,
                         label: "calories"
                     )
                 }
-                .animation(.easeInOut(duration: 0.25), value: selected.id)
+                .animation(.easeInOut(duration: 0.25), value: periodTotals.distanceMiles)
+                .animation(.easeInOut(duration: 0.25), value: periodTotals.workouts)
+                .animation(.easeInOut(duration: 0.25), value: periodTotals.calories)
                 .animation(.easeInOut(duration: 0.25), value: period)
             }
 
@@ -867,7 +870,7 @@ struct StatisticsView: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(displayedSlices) { slice in
-                        historyTimelineDetailRow(slice: slice, isSelected: slice.start == selected?.start)
+                        historyTimelineDetailRow(slice: slice)
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 withAnimation(.easeInOut(duration: 0.2)) {
@@ -884,6 +887,13 @@ struct StatisticsView: View {
             }
         }
         .padding(.horizontal, 20)
+    }
+
+    private func historyPeriodTotals(from slices: [HistorySlice]) -> (distanceMiles: Double, workouts: Int, calories: Double) {
+        let totalDistance = slices.reduce(0.0) { $0 + $1.totalDistanceMiles }
+        let totalWorkouts = slices.reduce(0) { $0 + $1.sessionCount }
+        let totalCalories = slices.reduce(0.0) { $0 + $1.totalCalories }
+        return (totalDistance, totalWorkouts, totalCalories)
     }
 
     private func historySummaryCard(number: String, suffix: String?, label: String) -> some View {
@@ -913,7 +923,7 @@ struct StatisticsView: View {
         )
     }
 
-    private func historyTimelineDetailRow(slice: HistorySlice, isSelected: Bool) -> some View {
+    private func historyTimelineDetailRow(slice: HistorySlice) -> some View {
         let leading = timelineLeadingLabel(for: slice)
         let hasWorkout = slice.sessionCount > 0
         let totalMinutes = max(0, Int(slice.workouts.reduce(0.0) { $0 + $1.duration } / 60.0))
@@ -966,10 +976,6 @@ struct StatisticsView: View {
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(isSelected ? Color.black.opacity(0.03) : .clear)
-        )
         .animation(.easeInOut(duration: 0.2), value: slice.id)
     }
 
@@ -979,12 +985,7 @@ struct StatisticsView: View {
         let dayStart = calendar.component(.day, from: slice.start)
         let dayEnd = calendar.component(.day, from: endDate)
 
-        let monthFormatter = DateFormatter()
-        monthFormatter.dateFormat = "MMM"
-        let monthStart = monthFormatter.string(from: slice.start)
-        let monthEnd = monthFormatter.string(from: endDate)
-
-        let monthText = monthStart == monthEnd ? monthStart : "\(monthStart)-\(monthEnd)"
+        let monthText = "Week"
         let dayRangeText = "\(dayStart)-\(dayEnd)"
 
         return VStack(alignment: .center, spacing: 0) {
